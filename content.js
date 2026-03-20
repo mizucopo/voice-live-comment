@@ -120,7 +120,7 @@ function startRecognition() {
 
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         sendError('マイクへのアクセスが拒否されました');
-        stopRecognition();
+        stopRecognition(true);
         return;
       }
 
@@ -128,7 +128,7 @@ function startRecognition() {
       restartCount++;
       if (restartCount > MAX_RESTARTS) {
         sendError(`音声認識エラー: ${event.error}（再試行上限に達しました）`);
-        stopRecognition();
+        stopRecognition(true);
         return;
       }
 
@@ -150,7 +150,7 @@ function startRecognition() {
         restartCount++;
         if (restartCount > MAX_RESTARTS) {
           sendError('音声認識が繰り返し終了しました（再試行上限）');
-          stopRecognition();
+          stopRecognition(true);
           return;
         }
         setTimeout(() => {
@@ -164,7 +164,7 @@ function startRecognition() {
 }
 
 // 音声認識を停止
-function stopRecognition() {
+function stopRecognition(keepErrorBadge = false) {
   isActive = false;
 
   if (recognition) {
@@ -176,7 +176,10 @@ function stopRecognition() {
     recognition = null;
   }
 
-  chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: false });
+  // エラー時はバッジをそのまま残す
+  if (!keepErrorBadge) {
+    chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: false });
+  }
   console.log('[Voice Live Comment] 音声認識を停止しました');
 }
 
