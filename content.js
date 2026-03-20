@@ -55,6 +55,7 @@ function findSendButton() {
 function inputAndSubmit(text) {
   // トリム処理：前後のスペース除去＋連続スペースを1つに
   text = text.trim().replace(/\s+/g, ' ');
+  console.log('[Voice Live Comment] 確定:', text);
 
   if (!text) return; // 空文字の場合は何もしない
 
@@ -167,7 +168,6 @@ function startRecognition() {
       }
 
       if (finalText) {
-        console.log('[Voice Live Comment] 確定:', finalText);
         inputAndSubmit(finalText);
       }
     };
