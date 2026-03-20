@@ -12,15 +12,16 @@ async function loadSettings() {
 
 // チャット入力欄を取得
 function findChatInput() {
+  // YouTube Studio (配信者側)
+  const studioInput = document.querySelector('yt-live-chat-text-input-field-renderer #input') ||
+                      document.querySelector('yt-live-chat-text-input-field-renderer [contenteditable="true"]') ||
+                      document.querySelector('#input-container [contenteditable="true"]');
+  if (studioInput) return studioInput;
+
   // YouTube視聴側
   const ytInput = document.querySelector('#chat #input') ||
                   document.querySelector('#chat [contenteditable="true"]');
   if (ytInput) return ytInput;
-
-  // YouTube Studio
-  const studioInput = document.querySelector('#input-container [contenteditable="true"]') ||
-                      document.querySelector('yt-live-chat-message-input-renderer #input');
-  if (studioInput) return studioInput;
 
   // フォールバック: chat内のcontenteditable
   const chatContainer = document.querySelector('#chat') || document.querySelector('yt-live-chat-app');
