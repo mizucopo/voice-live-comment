@@ -53,6 +53,11 @@ function findSendButton() {
 
 // テキストを入力して送信
 function inputAndSubmit(text) {
+  // トリム処理：前後のスペース除去＋連続スペースを1つに
+  text = text.trim().replace(/\s+/g, ' ');
+
+  if (!text) return; // 空文字の場合は何もしない
+
   const input = findChatInput();
 
   if (!input) {
