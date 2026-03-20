@@ -248,6 +248,13 @@ if (hasChat) {
         startRecognition();
       }
       sendResponse({ isActive });
+    } else if (message.type === 'SETTINGS_UPDATED') {
+      // 設定更新時に再読み込み
+      loadSettings().then(() => {
+        if (isActive) {
+          restartRecognition();
+        }
+      });
     }
     return true;
   });

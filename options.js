@@ -18,6 +18,14 @@ async function saveSettings() {
 
   await chrome.storage.sync.set({ autoPost, language });
 
+  // content scriptへ設定更新を通知
+  const tabs = await chrome.tabs.query({ url: ['*://www.youtube.com/*', '*://studio.youtube.com/*'] });
+  tabs.forEach(tab => {
+    chrome.tabs.sendMessage(tab.id, { type: 'SETTINGS_UPDATED' }).catch(() => {
+      // エラーは無視（content scriptが読み込まれていない場合など）
+    });
+  });
+
   const status = document.getElementById('status');
   status.textContent = '保存しました';
   setTimeout(() => {
