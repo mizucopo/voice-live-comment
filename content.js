@@ -73,6 +73,7 @@ function inputAndSubmit(text) {
 
 // エラーをbackgroundに送信
 function sendError(message) {
+  console.error('[Voice Live Comment] sendError:', message);
   chrome.runtime.sendMessage({ type: 'SHOW_ERROR', message });
 }
 
