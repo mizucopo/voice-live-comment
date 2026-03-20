@@ -110,7 +110,6 @@ function startRecognition() {
       isActive = true;
       isRestarting = false;
       chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: true });
-      console.log('[Voice Live Comment] 音声認識を開始しました');
     };
 
     recognition.onresult = (event) => {
