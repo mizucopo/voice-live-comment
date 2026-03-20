@@ -34,6 +34,9 @@ function findChatInput() {
   return null;
 }
 
+// ページリロード時にバッジをリセット
+chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: false });
+
 // チャット入力欄があるフレームでのみ動作
 const hasChat = !!findChatInput();
 
