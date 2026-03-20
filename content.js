@@ -71,15 +71,29 @@ function inputAndSubmit(text) {
   input.focus();
   console.log('[Voice Live Comment] input要素の種類:', input.tagName);
 
-  // input要素の場合はvalueを使用
+  // input要素の場合
   if (input.tagName === 'INPUT') {
-    // 値を設定
+    // Polymer要素（tp-yt-paper-input）を探して値を設定
+    const paperInput = input.closest('tp-yt-paper-input') ||
+                       document.querySelector('tp-yt-paper-input');
+
+    if (paperInput) {
+      console.log('[Voice Live Comment] Polymer要素を発見:', paperInput);
+      // Polymerのvalueプロパティを設定
+      paperInput.value = text;
+      // イベントを発火
+      paperInput.dispatchEvent(new CustomEvent('value-changed', {
+        bubbles: true,
+        detail: { value: text }
+      }));
+    }
+
+    // 通常のinputにも値を設定
     input.value = text;
 
-    // 複数のイベントを発火してフレームワークに検知させる
+    // 複数のイベントを発火
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-    input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
 
     console.log('[Voice Live Comment] INPUTに値を設定:', text, '現在のvalue:', input.value);
   } else {
@@ -90,7 +104,7 @@ function inputAndSubmit(text) {
 
   // 自動投稿の場合は送信
   if (settings.autoPost) {
-    // 少し待ってから送信ボタンを探す（フレームワークの更新を待つ）
+    // フレームワークの更新を待つ
     setTimeout(() => {
       const sendButton = findSendButton();
       console.log('[Voice Live Comment] 送信ボタン:', sendButton, 'disabled:', sendButton?.disabled);
@@ -106,6 +120,12 @@ function inputAndSubmit(text) {
           keyCode: 13,
           bubbles: true
         }));
+        input.dispatchEvent(new KeyboardEvent('keypress', {
+          key: 'Enter',
+          code: 'Enter',
+          keyCode: 13,
+          bubbles: true
+        }));
         input.dispatchEvent(new KeyboardEvent('keyup', {
           key: 'Enter',
           code: 'Enter',
@@ -114,7 +134,7 @@ function inputAndSubmit(text) {
         }));
         console.log('[Voice Live Comment] Enterキーを送信');
       }
-    }, 100);
+    }, 200);
   }
 }
 
