@@ -11,9 +11,24 @@ chrome.action.onClicked.addListener(async (tab) => {
     const response = await chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_RECOGNITION' });
     updateBadge(response.isActive);
   } catch (error) {
-    console.error('content.jsとの通信に失敗:', error);
-    setBadgeError();
-    showNotification('エラー', 'ページを再読み込みしてから再試行してください');
+    console.log('content.js未読み込み、注入を試みます...');
+
+    // content.jsを注入して再試行
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js']
+      });
+
+      // 少し待ってからメッセージ送信
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const response = await chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_RECOGNITION' });
+      updateBadge(response.isActive);
+    } catch (injectError) {
+      console.error('content.js注入失敗:', injectError);
+      setBadgeError();
+      showNotification('エラー', 'ページを再読み込みしてから再試行してください');
+    }
   }
 });
 
