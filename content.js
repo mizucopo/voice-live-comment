@@ -136,9 +136,8 @@ function startRecognition() {
         return;
       }
 
-      // no-speech, aborted は正常な状態（onendで再開するのでここでは何もしない）
+      // no-speech, aborted はonendで再開するので何もしない
       if (event.error === 'no-speech' || event.error === 'aborted') {
-        console.log('[Voice Live Comment] 一時停止:', event.error);
         return;
       }
 
@@ -147,18 +146,14 @@ function startRecognition() {
       if (isActive) {
         setTimeout(() => {
           if (isActive) restartRecognition();
-        }, 500);
+        }, 100);
       }
     };
 
     recognition.onend = () => {
-      console.log('[Voice Live Comment] 音声認識が終了しました');
-
-      // 自動再開（ユーザーが停止していない場合）
+      // 自動再開（ユーザーが停止していない場合）- 即座に再開
       if (isActive) {
-        setTimeout(() => {
-          if (isActive) restartRecognition();
-        }, 500);
+        restartRecognition();
       }
     };
 
