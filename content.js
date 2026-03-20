@@ -118,13 +118,25 @@ function startRecognition() {
     recognition.onerror = (event) => {
       console.error('[Voice Live Comment] エラー:', event.error);
 
+      // 権限エラーは停止
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         sendError('マイクへのアクセスが拒否されました');
         stopRecognition(true);
         return;
       }
 
-      // 再試行回数をカウント
+      // no-speech と aborted は再試行カウントに含めない
+      if (event.error === 'no-speech' || event.error === 'aborted') {
+        console.log('[Voice Live Comment] 一時的なエラー、再試行します');
+        if (isActive) {
+          setTimeout(() => {
+            if (isActive) restartRecognition();
+          }, 500);
+        }
+        return;
+      }
+
+      // その他のエラーは再試行回数をカウント
       restartCount++;
       if (restartCount > MAX_RESTARTS) {
         sendError(`音声認識エラー: ${event.error}（再試行上限に達しました）`);
@@ -134,7 +146,6 @@ function startRecognition() {
 
       console.log(`[Voice Live Comment] 再試行 ${restartCount}/${MAX_RESTARTS}`);
 
-      // その他のエラーは自動再試行
       if (isActive) {
         setTimeout(() => {
           if (isActive) restartRecognition();
