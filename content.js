@@ -2,6 +2,7 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 
 let recognition = null;
 let isActive = false;
+let isRestarting = false;
 let settings = { autoPost: true, language: 'ja-JP' };
 
 // チャット入力欄を取得
@@ -107,6 +108,7 @@ function startRecognition() {
 
     recognition.onstart = () => {
       isActive = true;
+      isRestarting = false;
       chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: true });
       console.log('[Voice Live Comment] 音声認識を開始しました');
     };
@@ -151,8 +153,9 @@ function startRecognition() {
     };
 
     recognition.onend = () => {
-      // 自動再開（ユーザーが停止していない場合）- 即座に再開
-      if (isActive) {
+      // 自動再開（ユーザーが停止していない場合）
+      if (isActive && !isRestarting) {
+        isRestarting = true;
         restartRecognition();
       }
     };
