@@ -61,12 +61,15 @@ function findSendButton() {
 // テキストを入力して送信
 function inputAndSubmit(text) {
   const input = findChatInput();
+  console.log('[Voice Live Comment] inputAndSubmit - input要素:', input);
+
   if (!input) {
     sendError('チャット入力欄が見つかりません');
     return;
   }
 
   input.focus();
+  console.log('[Voice Live Comment] input要素の種類:', input.tagName);
 
   // input要素の場合はvalueを使用、contenteditableの場合はtextContentを使用
   if (input.tagName === 'INPUT') {
@@ -74,14 +77,17 @@ function inputAndSubmit(text) {
     const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
     nativeInputValueSetter.call(input, text);
     input.dispatchEvent(new Event('input', { bubbles: true }));
+    console.log('[Voice Live Comment] INPUTに値を設定:', text);
   } else {
     input.textContent = text;
     input.dispatchEvent(new InputEvent('input', { bubbles: true, data: text }));
+    console.log('[Voice Live Comment] contenteditableに値を設定:', text);
   }
 
   // 自動投稿の場合は送信
   if (settings.autoPost) {
     const sendButton = findSendButton();
+    console.log('[Voice Live Comment] 送信ボタン:', sendButton);
     if (sendButton) {
       sendButton.click();
     } else {
@@ -92,6 +98,7 @@ function inputAndSubmit(text) {
         keyCode: 13,
         bubbles: true
       }));
+      console.log('[Voice Live Comment] Enterキーを送信');
     }
   }
 }
