@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "My First Extension",
+  "version": "1.0.0",
+  "description": "最初のChrome拡張",
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
