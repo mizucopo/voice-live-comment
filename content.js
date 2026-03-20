@@ -37,12 +37,6 @@ function findChatInput() {
 // チャット入力欄があるフレームでのみ動作
 const hasChat = !!findChatInput();
 
-if (!hasChat) {
-  console.log('[Voice Live Comment] このフレームにはチャット入力欄がありません');
-} else {
-  console.log('[Voice Live Comment] チャット入力欄を検出しました');
-}
-
 // 設定を読み込む
 async function loadSettings() {
   const result = await chrome.storage.sync.get({ autoPost: true, language: 'ja-JP' });
@@ -60,7 +54,6 @@ function findSendButton() {
 // テキストを入力して送信
 function inputAndSubmit(text) {
   const input = findChatInput();
-  console.log('[Voice Live Comment] inputAndSubmit - input要素:', input);
 
   if (!input) {
     sendError('チャット入力欄が見つかりません');
@@ -68,14 +61,10 @@ function inputAndSubmit(text) {
   }
 
   input.focus();
-  console.log('[Voice Live Comment] input要素の種類:', input.tagName, 'contenteditable:', input.contentEditable);
 
   // contenteditableなdivの場合
   if (input.contentEditable === 'true' || input.hasAttribute('contenteditable')) {
-    // テキストを設定
     input.textContent = text;
-
-    // 複数のイベントを発火
     input.dispatchEvent(new InputEvent('input', {
       bubbles: true,
       cancelable: true,
@@ -83,17 +72,13 @@ function inputAndSubmit(text) {
       inputType: 'insertText'
     }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-
-    console.log('[Voice Live Comment] contenteditableに値を設定:', text);
   }
   // input要素の場合
   else if (input.tagName === 'INPUT') {
-    // Polymer要素（tp-yt-paper-input）を探して値を設定
     const paperInput = input.closest('tp-yt-paper-input') ||
                        document.querySelector('tp-yt-paper-input');
 
     if (paperInput) {
-      console.log('[Voice Live Comment] Polymer要素を発見:', paperInput);
       paperInput.value = text;
       paperInput.dispatchEvent(new CustomEvent('value-changed', {
         bubbles: true,
@@ -104,21 +89,16 @@ function inputAndSubmit(text) {
     input.value = text;
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-
-    console.log('[Voice Live Comment] INPUTに値を設定:', text, '現在のvalue:', input.value);
   }
 
   // 自動投稿の場合は送信
   if (settings.autoPost) {
     setTimeout(() => {
       const sendButton = findSendButton();
-      console.log('[Voice Live Comment] 送信ボタン:', sendButton, 'disabled:', sendButton?.disabled);
 
       if (sendButton && !sendButton.disabled) {
         sendButton.click();
-        console.log('[Voice Live Comment] 送信ボタンをクリック');
       } else {
-        // Enterキーで送信
         input.dispatchEvent(new KeyboardEvent('keydown', {
           key: 'Enter',
           code: 'Enter',
@@ -137,7 +117,6 @@ function inputAndSubmit(text) {
           keyCode: 13,
           bubbles: true
         }));
-        console.log('[Voice Live Comment] Enterキーを送信');
       }
     }, 200);
   }
@@ -145,7 +124,6 @@ function inputAndSubmit(text) {
 
 // エラーをbackgroundに送信
 function sendError(message) {
-  console.error('[Voice Live Comment] sendError:', message);
   chrome.runtime.sendMessage({ type: 'SHOW_ERROR', message });
 }
 
@@ -192,7 +170,6 @@ function startRecognition() {
     recognition.onerror = (event) => {
       // 権限エラーは停止して通知
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-        console.error('[Voice Live Comment] 権限エラー:', event.error);
         sendError('マイクへのアクセスが拒否されました');
         stopRecognition(true);
         return;
@@ -204,7 +181,6 @@ function startRecognition() {
       }
 
       // その他のエラーは自動再試行
-      console.warn('[Voice Live Comment] エラー:', event.error);
       if (isActive) {
         setTimeout(() => {
           if (isActive) restartRecognition();
@@ -227,7 +203,7 @@ function startRecognition() {
 // 音声認識を停止
 function stopRecognition(keepErrorBadge = false) {
   isActive = false;
-  isInitialStart = true; // 次回開始時にログを出力
+  isInitialStart = true;
 
   if (recognition) {
     try {
@@ -238,7 +214,6 @@ function stopRecognition(keepErrorBadge = false) {
     recognition = null;
   }
 
-  // エラー時はバッジをそのまま残す
   if (!keepErrorBadge) {
     chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: false });
   }
@@ -272,6 +247,3 @@ if (hasChat) {
     return true;
   });
 }
-
-// 初期化
-console.log('[Voice Live Comment] Content script loaded');
