@@ -8,18 +8,17 @@ let settings = { autoPost: true, language: 'ja-JP' };
 
 // チャット入力欄を取得
 function findChatInput() {
+  // YouTube Studio / Live Chat - contenteditableなdiv
+  const liveChatInput = document.querySelector('yt-live-chat-text-input-field-renderer div#input') ||
+                         document.querySelector('yt-live-chat-text-input-field-renderer div[contenteditable]') ||
+                         document.querySelector('div#input[contenteditable]');
+  if (liveChatInput) return liveChatInput;
+
   // YouTube Studio (配信者側) - iframe内のinput
   const studioInput = document.querySelector('tp-yt-paper-input input') ||
                       document.querySelector('tp-yt-iron-input input') ||
                       document.querySelector('input.tp-yt-paper-input');
   if (studioInput) return studioInput;
-
-  // YouTube Studio (その他のセレクタ)
-  const studioAlt = document.querySelector('#input') ||
-                     document.querySelector('yt-live-chat-text-input-field-renderer #input') ||
-                     document.querySelector('yt-live-chat-text-input-field-renderer [contenteditable="true"]') ||
-                     document.querySelector('#input-container [contenteditable="true"]');
-  if (studioAlt) return studioAlt;
 
   // YouTube視聴側
   const ytInput = document.querySelector('#chat #input') ||
@@ -69,42 +68,48 @@ function inputAndSubmit(text) {
   }
 
   input.focus();
-  console.log('[Voice Live Comment] input要素の種類:', input.tagName);
+  console.log('[Voice Live Comment] input要素の種類:', input.tagName, 'contenteditable:', input.contentEditable);
 
+  // contenteditableなdivの場合
+  if (input.contentEditable === 'true' || input.hasAttribute('contenteditable')) {
+    // テキストを設定
+    input.textContent = text;
+
+    // 複数のイベントを発火
+    input.dispatchEvent(new InputEvent('input', {
+      bubbles: true,
+      cancelable: true,
+      data: text,
+      inputType: 'insertText'
+    }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    console.log('[Voice Live Comment] contenteditableに値を設定:', text);
+  }
   // input要素の場合
-  if (input.tagName === 'INPUT') {
+  else if (input.tagName === 'INPUT') {
     // Polymer要素（tp-yt-paper-input）を探して値を設定
     const paperInput = input.closest('tp-yt-paper-input') ||
                        document.querySelector('tp-yt-paper-input');
 
     if (paperInput) {
       console.log('[Voice Live Comment] Polymer要素を発見:', paperInput);
-      // Polymerのvalueプロパティを設定
       paperInput.value = text;
-      // イベントを発火
       paperInput.dispatchEvent(new CustomEvent('value-changed', {
         bubbles: true,
         detail: { value: text }
       }));
     }
 
-    // 通常のinputにも値を設定
     input.value = text;
-
-    // 複数のイベントを発火
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
 
     console.log('[Voice Live Comment] INPUTに値を設定:', text, '現在のvalue:', input.value);
-  } else {
-    input.textContent = text;
-    input.dispatchEvent(new InputEvent('input', { bubbles: true, data: text }));
-    console.log('[Voice Live Comment] contenteditableに値を設定:', text);
   }
 
   // 自動投稿の場合は送信
   if (settings.autoPost) {
-    // フレームワークの更新を待つ
     setTimeout(() => {
       const sendButton = findSendButton();
       console.log('[Voice Live Comment] 送信ボタン:', sendButton, 'disabled:', sendButton?.disabled);
@@ -113,7 +118,7 @@ function inputAndSubmit(text) {
         sendButton.click();
         console.log('[Voice Live Comment] 送信ボタンをクリック');
       } else {
-        // 送信ボタンが無効な場合はEnterキー
+        // Enterキーで送信
         input.dispatchEvent(new KeyboardEvent('keydown', {
           key: 'Enter',
           code: 'Enter',
