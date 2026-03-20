@@ -110,6 +110,7 @@ function startRecognition() {
       }
 
       if (finalText) {
+        restartCount = 0; // 音声認識成功時にリセット
         console.log('[Voice Live Comment] 確定:', finalText);
         inputAndSubmit(finalText);
       }
