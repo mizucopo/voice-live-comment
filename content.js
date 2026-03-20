@@ -71,13 +71,17 @@ function inputAndSubmit(text) {
   input.focus();
   console.log('[Voice Live Comment] input要素の種類:', input.tagName);
 
-  // input要素の場合はvalueを使用、contenteditableの場合はtextContentを使用
+  // input要素の場合はvalueを使用
   if (input.tagName === 'INPUT') {
-    // React等のフレームワーク対応
-    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    nativeInputValueSetter.call(input, text);
+    // 値を設定
+    input.value = text;
+
+    // 複数のイベントを発火してフレームワークに検知させる
     input.dispatchEvent(new Event('input', { bubbles: true }));
-    console.log('[Voice Live Comment] INPUTに値を設定:', text);
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+
+    console.log('[Voice Live Comment] INPUTに値を設定:', text, '現在のvalue:', input.value);
   } else {
     input.textContent = text;
     input.dispatchEvent(new InputEvent('input', { bubbles: true, data: text }));
@@ -86,20 +90,31 @@ function inputAndSubmit(text) {
 
   // 自動投稿の場合は送信
   if (settings.autoPost) {
-    const sendButton = findSendButton();
-    console.log('[Voice Live Comment] 送信ボタン:', sendButton);
-    if (sendButton) {
-      sendButton.click();
-    } else {
-      // 送信ボタンが見つからない場合はEnterキー
-      input.dispatchEvent(new KeyboardEvent('keydown', {
-        key: 'Enter',
-        code: 'Enter',
-        keyCode: 13,
-        bubbles: true
-      }));
-      console.log('[Voice Live Comment] Enterキーを送信');
-    }
+    // 少し待ってから送信ボタンを探す（フレームワークの更新を待つ）
+    setTimeout(() => {
+      const sendButton = findSendButton();
+      console.log('[Voice Live Comment] 送信ボタン:', sendButton, 'disabled:', sendButton?.disabled);
+
+      if (sendButton && !sendButton.disabled) {
+        sendButton.click();
+        console.log('[Voice Live Comment] 送信ボタンをクリック');
+      } else {
+        // 送信ボタンが無効な場合はEnterキー
+        input.dispatchEvent(new KeyboardEvent('keydown', {
+          key: 'Enter',
+          code: 'Enter',
+          keyCode: 13,
+          bubbles: true
+        }));
+        input.dispatchEvent(new KeyboardEvent('keyup', {
+          key: 'Enter',
+          code: 'Enter',
+          keyCode: 13,
+          bubbles: true
+        }));
+        console.log('[Voice Live Comment] Enterキーを送信');
+      }
+    }, 100);
   }
 }
 
