@@ -8,12 +8,15 @@ let settings = { autoPost: true, language: 'ja-JP' };
 
 // チャット入力欄を取得
 function findChatInput() {
-  // YouTube Studio (配信者側) - #input が最優先
-  const studioInput = document.querySelector('#input');
+  // YouTube Studio (配信者側) - iframe内のinput
+  const studioInput = document.querySelector('tp-yt-paper-input input') ||
+                      document.querySelector('tp-yt-iron-input input') ||
+                      document.querySelector('input.tp-yt-paper-input');
   if (studioInput) return studioInput;
 
   // YouTube Studio (その他のセレクタ)
-  const studioAlt = document.querySelector('yt-live-chat-text-input-field-renderer #input') ||
+  const studioAlt = document.querySelector('#input') ||
+                     document.querySelector('yt-live-chat-text-input-field-renderer #input') ||
                      document.querySelector('yt-live-chat-text-input-field-renderer [contenteditable="true"]') ||
                      document.querySelector('#input-container [contenteditable="true"]');
   if (studioAlt) return studioAlt;
@@ -63,12 +66,18 @@ function inputAndSubmit(text) {
     return;
   }
 
-  // contenteditableにテキストを入力
   input.focus();
-  input.textContent = text;
 
-  // 入力イベントを発火（React等のフレームワーク対応）
-  input.dispatchEvent(new InputEvent('input', { bubbles: true, data: text }));
+  // input要素の場合はvalueを使用、contenteditableの場合はtextContentを使用
+  if (input.tagName === 'INPUT') {
+    // React等のフレームワーク対応
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeInputValueSetter.call(input, text);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  } else {
+    input.textContent = text;
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, data: text }));
+  }
 
   // 自動投稿の場合は送信
   if (settings.autoPost) {
