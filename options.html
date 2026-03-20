@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Voice Live Comment 設定</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 400px;
+      margin: 20px;
+      line-height: 1.6;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .hint {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+    button {
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .status {
+      margin-top: 12px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>設定</h1>
+
+  <div class="form-group">
+    <label>
+      <input type="checkbox" id="autoPost" checked>
+      自動投稿する
+    </label>
+    <div class="hint">オフの場合、テキストを入力欄に入れるだけで送信しません</div>
+  </div>
+
+  <div class="form-group">
+    <label for="language">言語コード</label>
+    <input type="text" id="language" value="ja-JP" placeholder="例: ja-JP, en-US, ko-KR, zh-CN">
+    <div class="hint">音声認識の言語を指定します</div>
+  </div>
+
+  <button id="save">保存</button>
+  <div id="status" class="status"></div>
+
+  <script src="options.js"></script>
+</body>
+</html>
