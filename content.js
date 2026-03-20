@@ -136,14 +136,14 @@ function startRecognition() {
         return;
       }
 
-      // no-speech, aborted は正常な状態なのでログレベルを下げる
+      // no-speech, aborted は正常な状態（onendで再開するのでここでは何もしない）
       if (event.error === 'no-speech' || event.error === 'aborted') {
         console.log('[Voice Live Comment] 一時停止:', event.error);
-      } else {
-        console.warn('[Voice Live Comment] エラー:', event.error);
+        return;
       }
 
-      // 自動再試行
+      // その他のエラーは自動再試行
+      console.warn('[Voice Live Comment] エラー:', event.error);
       if (isActive) {
         setTimeout(() => {
           if (isActive) restartRecognition();
