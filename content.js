@@ -119,16 +119,22 @@ function startRecognition() {
     };
 
     recognition.onerror = (event) => {
-      console.error('[Voice Live Comment] エラー:', event.error);
-
-      // 権限エラーは停止
+      // 権限エラーは停止して通知
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        console.error('[Voice Live Comment] 権限エラー:', event.error);
         sendError('マイクへのアクセスが拒否されました');
         stopRecognition(true);
         return;
       }
 
-      // その他のエラーは自動再試行
+      // no-speech, aborted は正常な状態なのでログレベルを下げる
+      if (event.error === 'no-speech' || event.error === 'aborted') {
+        console.log('[Voice Live Comment] 一時停止:', event.error);
+      } else {
+        console.warn('[Voice Live Comment] エラー:', event.error);
+      }
+
+      // 自動再試行
       if (isActive) {
         setTimeout(() => {
           if (isActive) restartRecognition();
