@@ -4,12 +4,6 @@ let recognition = null;
 let isActive = false;
 let settings = { autoPost: true, language: 'ja-JP' };
 
-// 設定を読み込む
-async function loadSettings() {
-  const result = await chrome.storage.sync.get({ autoPost: true, language: 'ja-JP' });
-  settings = result;
-}
-
 // チャット入力欄を取得
 function findChatInput() {
   // YouTube Studio (配信者側) - #input が最優先
@@ -34,6 +28,21 @@ function findChatInput() {
   }
 
   return null;
+}
+
+// チャット入力欄があるフレームでのみ動作
+const hasChat = !!findChatInput();
+
+if (!hasChat) {
+  console.log('[Voice Live Comment] このフレームにはチャット入力欄がありません');
+} else {
+  console.log('[Voice Live Comment] チャット入力欄を検出しました');
+}
+
+// 設定を読み込む
+async function loadSettings() {
+  const result = await chrome.storage.sync.get({ autoPost: true, language: 'ja-JP' });
+  settings = result;
 }
 
 // 送信ボタンを取得
@@ -190,18 +199,20 @@ function restartRecognition() {
   startRecognition();
 }
 
-// メッセージ受信
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'TOGGLE_RECOGNITION') {
-    if (isActive) {
-      stopRecognition();
-    } else {
-      startRecognition();
+// メッセージ受信（チャット入力欄があるフレームのみ）
+if (hasChat) {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'TOGGLE_RECOGNITION') {
+      if (isActive) {
+        stopRecognition();
+      } else {
+        startRecognition();
+      }
+      sendResponse({ isActive });
     }
-    sendResponse({ isActive });
-  }
-  return true;
-});
+    return true;
+  });
+}
 
 // 初期化
 console.log('[Voice Live Comment] Content script loaded');
