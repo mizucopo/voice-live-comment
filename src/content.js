@@ -1,5 +1,13 @@
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+// テキストをトリムし、連続する空白を1つにまとめる
+function trimText(text) {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+  return text.trim().replace(/\s+/g, ' ');
+}
+
 let recognition = null;
 let isActive = false;
 let isRestarting = false;
@@ -44,6 +52,7 @@ const hasChat = !!findChatInput();
 async function loadSettings() {
   const result = await chrome.storage.sync.get({ autoPost: true, language: 'ja-JP' });
   settings = result;
+  return settings;
 }
 
 // 送信ボタンを取得
@@ -57,7 +66,7 @@ function findSendButton() {
 // テキストを入力して送信
 function inputAndSubmit(text) {
   // トリム処理：前後のスペース除去＋連続スペースを1つに
-  text = text.trim().replace(/\s+/g, ' ');
+  text = trimText(text);
   console.log('[Voice Live Comment] 確定:', text);
 
   if (!text) return; // 空文字の場合は何もしない

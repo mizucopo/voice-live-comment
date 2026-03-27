@@ -5,14 +5,15 @@ const DEFAULT_SETTINGS = {
 };
 
 // 設定を読み込んでフォームに反映
-async function loadSettings() {
+export async function loadSettings() {
   const result = await chrome.storage.sync.get(DEFAULT_SETTINGS);
   document.getElementById('autoPost').checked = result.autoPost;
   document.getElementById('language').value = result.language;
+  return result;
 }
 
 // 設定を保存
-async function saveSettings() {
+export async function saveSettings() {
   const autoPost = document.getElementById('autoPost').checked;
   const language = document.getElementById('language').value.trim() || 'ja-JP';
 
@@ -31,7 +32,17 @@ async function saveSettings() {
   setTimeout(() => {
     status.textContent = '';
   }, 2000);
+
+  return { autoPost, language };
 }
 
-document.addEventListener('DOMContentLoaded', loadSettings);
-document.getElementById('save').addEventListener('click', saveSettings);
+// 初期化
+export function init() {
+  document.addEventListener('DOMContentLoaded', loadSettings);
+  document.getElementById('save').addEventListener('click', saveSettings);
+}
+
+// 自動初期化（ブラウザ環境でDOM要素が存在する場合のみ実行）
+if (typeof window !== 'undefined' && document.getElementById('save')) {
+  init();
+}
