@@ -25,4 +25,20 @@ describe('isTargetPage', () => {
   it('YouTube search URLに対してfalseを返す', () => {
     expect(isTargetPage('https://www.youtube.com/results?search_query=test')).toBe(false);
   });
+
+  it('モバイルYouTube URLに対してtrueを返す', () => {
+    expect(isTargetPage('https://m.youtube.com/watch?v=abc123')).toBe(true);
+  });
+
+  it('null入力に対してfalseを返す', () => {
+    expect(isTargetPage(null)).toBe(false);
+  });
+
+  it('undefined入力に対してfalseを返す', () => {
+    expect(isTargetPage(undefined)).toBe(false);
+  });
+
+  it('空文字に対してfalseを返す', () => {
+    expect(isTargetPage('')).toBe(false);
+  });
 });

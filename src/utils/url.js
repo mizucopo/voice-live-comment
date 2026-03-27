@@ -4,6 +4,9 @@
  * @returns {boolean} 対象ページならtrue
  */
 export function isTargetPage(url) {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
   return url.includes('youtube.com/watch') ||
          url.includes('youtube.com/live') ||
          url.includes('studio.youtube.com');
