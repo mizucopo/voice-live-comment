@@ -1,6 +1,12 @@
-import { trimText } from './utils/text.js';
-
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+// テキストをトリムし、連続する空白を1つにまとめる
+function trimText(text) {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+  return text.trim().replace(/\s+/g, ' ');
+}
 
 let recognition = null;
 let isActive = false;
@@ -9,7 +15,7 @@ let isInitialStart = true;
 let settings = { autoPost: true, language: 'ja-JP' };
 
 // チャット入力欄を取得
-export function findChatInput() {
+function findChatInput() {
   // YouTube Studio / Live Chat - contenteditableなdiv
   const liveChatInput = document.querySelector('yt-live-chat-text-input-field-renderer div#input') ||
                          document.querySelector('yt-live-chat-text-input-field-renderer div[contenteditable]') ||
@@ -43,14 +49,14 @@ chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: false });
 const hasChat = !!findChatInput();
 
 // 設定を読み込む
-export async function loadSettings() {
+async function loadSettings() {
   const result = await chrome.storage.sync.get({ autoPost: true, language: 'ja-JP' });
   settings = result;
   return settings;
 }
 
 // 送信ボタンを取得
-export function findSendButton() {
+function findSendButton() {
   return document.querySelector('#chat #send-button') ||
          document.querySelector('[aria-label="送信"]') ||
          document.querySelector('button[aria-label*="Send"]') ||
@@ -58,7 +64,7 @@ export function findSendButton() {
 }
 
 // テキストを入力して送信
-export function inputAndSubmit(text) {
+function inputAndSubmit(text) {
   // トリム処理：前後のスペース除去＋連続スペースを1つに
   text = trimText(text);
   console.log('[Voice Live Comment] 確定:', text);
