@@ -65,6 +65,8 @@ global.webkitSpeechRecognition = MockSpeechRecognition;
 // テスト間でモックをリセット
 beforeEach(() => {
   vi.clearAllMocks();
+
+  // Reset all Chrome API mocks with default return values
   mockStorage.sync.get.mockResolvedValue({});
   mockStorage.sync.set.mockResolvedValue(undefined);
   mockTabs.query.mockResolvedValue([]);
@@ -74,6 +76,4 @@ beforeEach(() => {
   mockNotifications.create.mockResolvedValue('');
   mockScripting.executeScript.mockResolvedValue([]);
   mockRuntime.sendMessage.mockResolvedValue(undefined);
-  mockRuntime.onMessage.addListener.mockClear();
-  mockRuntime.onMessage.removeListener.mockClear();
 });
