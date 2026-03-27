@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { updateBadge, setBadgeError, showNotification } from '../src/background.js';
 
+// background.jsはインポート時にonMessageリスナーを登録する。
+// beforeEachでvi.clearAllMocks()が呼ばれるとmock.callsもクリアされるため、
+// テスト内でリスナーを参照するにはリインポートが必要。
+async function importBackground() {
+  vi.resetModules();
+  return await import('../src/background.js');
+}
+
 describe('background.js', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -36,6 +44,32 @@ describe('background.js', () => {
         title: 'テストタイトル',
         message: 'テストメッセージ'
       });
+    });
+  });
+
+  describe('onMessage handler', () => {
+    it('UPDATE_BADGEメッセージでupdateBadgeを呼ぶ', async () => {
+      await importBackground();
+
+      // リスナーに登録されたコールバックを取得
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+
+      // コールバックを実行
+      listener({ type: 'UPDATE_BADGE', isActive: true }, {}, vi.fn());
+
+      // 検証
+      expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '●' });
+    });
+
+    it('SHOW_ERRORメッセージでエラーバッジと通知を表示', async () => {
+      await importBackground();
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+
+      listener({ type: 'SHOW_ERROR', message: 'テストエラー' }, {}, vi.fn());
+
+      expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '×' });
+      expect(chrome.notifications.create).toHaveBeenCalled();
     });
   });
 });
