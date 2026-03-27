@@ -24,7 +24,7 @@
         "*://www.youtube.com/watch*",
         "*://studio.youtube.com/*"
       ],
-      "js": ["content.js"],
+      "js": ["src/content.js"],
       "all_frames": true
     }
   ],

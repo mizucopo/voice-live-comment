@@ -19,7 +19,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     try {
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ['content.js']
+        files: ['src/content.js']
       });
 
       // 少し待ってからメッセージ送信
