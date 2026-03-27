@@ -69,4 +69,9 @@ beforeEach(() => {
   mockStorage.sync.set.mockResolvedValue(undefined);
   mockTabs.query.mockResolvedValue([]);
   mockTabs.sendMessage.mockResolvedValue({});
+  mockAction.setBadgeText.mockResolvedValue(undefined);
+  mockAction.setBadgeBackgroundColor.mockResolvedValue(undefined);
+  mockNotifications.create.mockResolvedValue('');
+  mockScripting.executeScript.mockResolvedValue([]);
+  mockRuntime.sendMessage.mockResolvedValue(undefined);
 });
