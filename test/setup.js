@@ -74,4 +74,6 @@ beforeEach(() => {
   mockNotifications.create.mockResolvedValue('');
   mockScripting.executeScript.mockResolvedValue([]);
   mockRuntime.sendMessage.mockResolvedValue(undefined);
+  mockRuntime.onMessage.addListener.mockClear();
+  mockRuntime.onMessage.removeListener.mockClear();
 });
