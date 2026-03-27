@@ -15,7 +15,11 @@ const mockTabs = {
 
 const mockAction = {
   setBadgeText: vi.fn().mockResolvedValue(undefined),
-  setBadgeBackgroundColor: vi.fn().mockResolvedValue(undefined)
+  setBadgeBackgroundColor: vi.fn().mockResolvedValue(undefined),
+  onClicked: {
+    addListener: vi.fn(),
+    removeListener: vi.fn()
+  }
 };
 
 const mockNotifications = {
