@@ -204,6 +204,7 @@ function setupRecognitionInstance(index) {
   }
 
   rec.onstart = () => {
+    clearTimeout(startTimeoutId);
     if (isInitialStart) {
       isActive = true;
       chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: true });

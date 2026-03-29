@@ -167,5 +167,35 @@ describe('content.js', () => {
         expect.objectContaining({ type: 'SHOW_ERROR' })
       );
     });
+
+    it('processLocally=trueでonstartが発火しない場合タイムアウトでフォールバック', async () => {
+      vi.useFakeTimers();
+      vi.resetModules();
+      chrome.storage.sync.get.mockResolvedValue({
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: true,
+        boostPhrases: [],
+        dictionary: ''
+      });
+      await import('../src/content.js');
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, vi.fn());
+
+      await vi.advanceTimersByTimeAsync(10);
+
+      const instances = global.MockSpeechRecognition._instances;
+      expect(instances.length).toBe(1);
+
+      // 3秒経過（タイムアウト発火）
+      await vi.advanceTimersByTimeAsync(3000);
+
+      // フォールバック確認
+      expect(instances.length).toBeGreaterThanOrEqual(2);
+      expect(instances[1].processLocally).not.toBe(true);
+
+      vi.useRealTimers();
+    });
   });
 });
