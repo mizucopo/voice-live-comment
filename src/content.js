@@ -232,10 +232,15 @@ function setupRecognitionInstance(index) {
 
   rec.onerror = (event) => {
     if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      if (settings.useLocalModel) {
+        fallbackToCloud(index, event.error);
+        return;
+      }
       sendError('マイクへのアクセスが拒否されました');
       stopRecognition(true);
       return;
     }
+    console.warn('[Voice Live Comment] 認識エラー:', event.error);
   };
 
   rec.onend = () => {
