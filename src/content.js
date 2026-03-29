@@ -38,6 +38,7 @@ const recognitions = [null, null];
 let activeIndex = 0;
 let nextPreStarted = false;
 let isActive = false;
+let isStarting = false;
 let isInitialStart = true;
 let settings = {
   autoPost: true,
@@ -347,6 +348,8 @@ function startRecognition() {
     return;
   }
 
+  isStarting = true;
+
   loadSettings().then(async () => {
     if (settings.useLocalModel) {
       const ready = await ensureOnDeviceModel();
@@ -356,15 +359,20 @@ function startRecognition() {
         settings.useLocalModel = false;
       }
     }
+    // 起動中にキャンセルされた場合は中止
+    if (!isStarting) return;
     activeIndex = 0;
     nextPreStarted = false;
     startInstance(0);
+  }).finally(() => {
+    isStarting = false;
   });
 }
 
 // 音声認識を停止
 function stopRecognition(keepErrorBadge = false) {
   isActive = false;
+  isStarting = false;
   isInitialStart = true;
   nextPreStarted = false;
   hasFallbackFromLocal = false;
@@ -389,6 +397,10 @@ if (hasChat) {
     if (message.type === 'TOGGLE_RECOGNITION') {
       if (isActive) {
         stopRecognition();
+      } else if (isStarting) {
+        // 起動処理中は追加の起動を防止（キャンセルもしない）
+        sendResponse({ isActive: false });
+        return true;
       } else {
         startRecognition();
       }
