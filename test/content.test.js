@@ -138,6 +138,40 @@ describe('content.js', () => {
       );
     });
 
+    it('processLocally=trueでlanguage-not-supportedエラー時にクラウド認識へフォールバック', async () => {
+      vi.resetModules();
+      chrome.storage.sync.get.mockResolvedValue({
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: true,
+        boostPhrases: [],
+        dictionary: ''
+      });
+      await import('../src/content.js');
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, vi.fn());
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      const instances = global.MockSpeechRecognition._instances;
+      expect(instances.length).toBeGreaterThanOrEqual(1);
+
+      // language-not-supportedエラーをシミュレート
+      instances[0].onerror({ error: 'language-not-supported' });
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // フォールバックで新しいインスタンスが作成される
+      expect(instances.length).toBeGreaterThanOrEqual(2);
+      expect(instances[1].processLocally).not.toBe(true);
+
+      // エラー通知が送信される
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'SHOW_ERROR', message: expect.stringContaining('クラウド') })
+      );
+    });
+
     it('processLocally=trueでstart()が例外を投げた場合クラウド認識へフォールバック', async () => {
       vi.resetModules();
       chrome.storage.sync.get.mockResolvedValue({

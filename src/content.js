@@ -232,7 +232,7 @@ function setupRecognitionInstance(index) {
   };
 
   rec.onerror = (event) => {
-    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed' || event.error === 'language-not-supported') {
       if (settings.useLocalModel) {
         fallbackToCloud(index, event.error);
         return;
