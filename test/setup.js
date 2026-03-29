@@ -54,6 +54,8 @@ class MockSpeechRecognition {
     this.continuous = false;
     this.interimResults = false;
     this.maxAlternatives = 1;
+    this.processLocally = undefined;
+    this.phrases = [];
     this.onstart = null;
     this.onresult = null;
     this.onerror = null;
@@ -63,8 +65,8 @@ class MockSpeechRecognition {
   stop() {}
 }
 
-global.SpeechRecognition = MockSpeechRecognition;
-global.webkitSpeechRecognition = MockSpeechRecognition;
+global.webkitSpeechRecognition = vi.fn().mockImplementation(() => new MockSpeechRecognition());
+global.SpeechRecognition = global.webkitSpeechRecognition;
 
 // テスト間でモックをリセット
 beforeEach(() => {
@@ -80,4 +82,7 @@ beforeEach(() => {
   mockNotifications.create.mockResolvedValue('');
   mockScripting.executeScript.mockResolvedValue([]);
   mockRuntime.sendMessage.mockResolvedValue(undefined);
+
+  // Reset SpeechRecognition constructor tracking
+  global.webkitSpeechRecognition.mockClear();
 });

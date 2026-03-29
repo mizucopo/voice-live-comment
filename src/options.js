@@ -1,7 +1,10 @@
 // デフォルト設定
 const DEFAULT_SETTINGS = {
   autoPost: true,
-  language: 'ja-JP'
+  language: 'ja-JP',
+  useLocalModel: false,
+  boostPhrases: [],
+  dictionary: ''
 };
 
 // 設定を読み込んでフォームに反映
@@ -9,6 +12,9 @@ export async function loadSettings() {
   const result = await chrome.storage.sync.get(DEFAULT_SETTINGS);
   document.getElementById('autoPost').checked = result.autoPost;
   document.getElementById('language').value = result.language;
+  document.getElementById('useLocalModel').checked = result.useLocalModel;
+  document.getElementById('boostPhrases').value = result.boostPhrases.join('\n');
+  document.getElementById('dictionary').value = result.dictionary;
   return result;
 }
 
@@ -16,8 +22,14 @@ export async function loadSettings() {
 export async function saveSettings() {
   const autoPost = document.getElementById('autoPost').checked;
   const language = document.getElementById('language').value.trim() || 'ja-JP';
+  const useLocalModel = document.getElementById('useLocalModel').checked;
+  const boostPhrases = document.getElementById('boostPhrases').value
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line);
+  const dictionary = document.getElementById('dictionary').value;
 
-  await chrome.storage.sync.set({ autoPost, language });
+  await chrome.storage.sync.set({ autoPost, language, useLocalModel, boostPhrases, dictionary });
 
   // content scriptへ設定更新を通知
   const tabs = await chrome.tabs.query({ url: ['*://www.youtube.com/*', '*://studio.youtube.com/*'] });
@@ -33,7 +45,7 @@ export async function saveSettings() {
     status.textContent = '';
   }, 2000);
 
-  return { autoPost, language };
+  return { autoPost, language, useLocalModel, boostPhrases, dictionary };
 }
 
 // 初期化

@@ -8,32 +8,62 @@ function trimText(text) {
   return text.trim().replace(/\s+/g, ' ');
 }
 
-let recognition = null;
+// 辞書テキストをパースして置換ルール配列に変換する
+function parseDictionaryRules(text) {
+  if (!text || typeof text !== 'string') {
+    return [];
+  }
+  return text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'))
+    .map(line => {
+      const idx = line.indexOf('→');
+      if (idx <= 0) return null;
+      return { from: line.slice(0, idx), to: line.slice(idx + 1) };
+    })
+    .filter(Boolean);
+}
+
+// 置換ルールをテキストに適用する
+function applyDictionary(text, rules) {
+  for (const rule of rules) {
+    text = text.replaceAll(rule.from, rule.to);
+  }
+  return text;
+}
+
+// デュアルバッファリング状態
+const recognitions = [null, null];
+let activeIndex = 0;
+let nextPreStarted = false;
 let isActive = false;
-let isRestarting = false;
 let isInitialStart = true;
-let settings = { autoPost: true, language: 'ja-JP' };
+let settings = {
+  autoPost: true,
+  language: 'ja-JP',
+  useLocalModel: false,
+  boostPhrases: [],
+  dictionary: ''
+};
+let parsedRules = [];
 
 // チャット入力欄を取得
 function findChatInput() {
-  // YouTube Studio / Live Chat - contenteditableなdiv
   const liveChatInput = document.querySelector('yt-live-chat-text-input-field-renderer div#input') ||
                          document.querySelector('yt-live-chat-text-input-field-renderer div[contenteditable]') ||
                          document.querySelector('div#input[contenteditable]');
   if (liveChatInput) return liveChatInput;
 
-  // YouTube Studio (配信者側) - iframe内のinput
   const studioInput = document.querySelector('tp-yt-paper-input input') ||
                       document.querySelector('tp-yt-iron-input input') ||
                       document.querySelector('input.tp-yt-paper-input');
   if (studioInput) return studioInput;
 
-  // YouTube視聴側
   const ytInput = document.querySelector('#chat #input') ||
                   document.querySelector('#chat [contenteditable="true"]');
   if (ytInput) return ytInput;
 
-  // フォールバック: chat内のcontenteditable
   const chatContainer = document.querySelector('#chat') || document.querySelector('yt-live-chat-app');
   if (chatContainer) {
     return chatContainer.querySelector('[contenteditable="true"]');
@@ -45,13 +75,19 @@ function findChatInput() {
 // ページリロード時にバッジをリセット
 chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: false });
 
-// チャット入力欄があるフレームでのみ動作
 const hasChat = !!findChatInput();
 
 // 設定を読み込む
 async function loadSettings() {
-  const result = await chrome.storage.sync.get({ autoPost: true, language: 'ja-JP' });
+  const result = await chrome.storage.sync.get({
+    autoPost: true,
+    language: 'ja-JP',
+    useLocalModel: false,
+    boostPhrases: [],
+    dictionary: ''
+  });
   settings = result;
+  parsedRules = parseDictionaryRules(settings.dictionary);
   return settings;
 }
 
@@ -65,11 +101,11 @@ function findSendButton() {
 
 // テキストを入力して送信
 function inputAndSubmit(text) {
-  // トリム処理：前後のスペース除去＋連続スペースを1つに
   text = trimText(text);
+  text = applyDictionary(text, parsedRules);
   console.log('[Voice Live Comment] 確定:', text);
 
-  if (!text) return; // 空文字の場合は何もしない
+  if (!text) return;
 
   const input = findChatInput();
 
@@ -80,7 +116,6 @@ function inputAndSubmit(text) {
 
   input.focus();
 
-  // contenteditableなdivの場合
   if (input.contentEditable === 'true' || input.hasAttribute('contenteditable')) {
     input.textContent = text;
     input.dispatchEvent(new InputEvent('input', {
@@ -90,9 +125,7 @@ function inputAndSubmit(text) {
       inputType: 'insertText'
     }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-  // input要素の場合
-  else if (input.tagName === 'INPUT') {
+  } else if (input.tagName === 'INPUT') {
     const paperInput = input.closest('tp-yt-paper-input') ||
                        document.querySelector('tp-yt-paper-input');
 
@@ -109,7 +142,6 @@ function inputAndSubmit(text) {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  // 自動投稿の場合は送信
   if (settings.autoPost) {
     setTimeout(() => {
       const sendButton = findSendButton();
@@ -118,22 +150,13 @@ function inputAndSubmit(text) {
         sendButton.click();
       } else {
         input.dispatchEvent(new KeyboardEvent('keydown', {
-          key: 'Enter',
-          code: 'Enter',
-          keyCode: 13,
-          bubbles: true
+          key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true
         }));
         input.dispatchEvent(new KeyboardEvent('keypress', {
-          key: 'Enter',
-          code: 'Enter',
-          keyCode: 13,
-          bubbles: true
+          key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true
         }));
         input.dispatchEvent(new KeyboardEvent('keyup', {
-          key: 'Enter',
-          code: 'Enter',
-          keyCode: 13,
-          bubbles: true
+          key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true
         }));
       }
     }, 200);
@@ -145,6 +168,101 @@ function sendError(message) {
   chrome.runtime.sendMessage({ type: 'SHOW_ERROR', message });
 }
 
+// 認識インスタンスをセットアップ
+function setupRecognitionInstance(index) {
+  const rec = new SpeechRecognition();
+
+  rec.lang = settings.language;
+  rec.continuous = false;
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+
+  // オンデバイスモデル（Chrome 138+）
+  if (settings.useLocalModel && 'processLocally' in rec) {
+    rec.processLocally = true;
+  }
+
+  // ワードブースト（Chrome 138+, オンデバイスのみ）
+  if (settings.useLocalModel && typeof SpeechRecognitionPhrase !== 'undefined' && settings.boostPhrases.length > 0) {
+    rec.phrases = settings.boostPhrases.map(p => new SpeechRecognitionPhrase(p, 10.0));
+  }
+
+  rec.onstart = () => {
+    if (isInitialStart) {
+      isActive = true;
+      chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: true });
+      console.log('[Voice Live Comment] 音声認識を開始しました');
+      isInitialStart = false;
+    }
+  };
+
+  rec.onresult = (event) => {
+    let finalText = '';
+    let hasFinal = false;
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        finalText += event.results[i][0].transcript;
+        hasFinal = true;
+      }
+    }
+    if (finalText) {
+      inputAndSubmit(finalText);
+    }
+    // アクティブインスタンスの最終結果で次を先行起動
+    if (hasFinal && index === activeIndex) {
+      preStartNextInstance();
+    }
+  };
+
+  rec.onerror = (event) => {
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      sendError('マイクへのアクセスが拒否されました');
+      stopRecognition(true);
+      return;
+    }
+  };
+
+  rec.onend = () => {
+    if (!isActive) return;
+
+    recognitions[index] = null;
+
+    if (index === activeIndex) {
+      // アクティブインスタンス終了 → 次に切り替え
+      activeIndex = (index + 1) % 2;
+      nextPreStarted = false;
+      // 次がまだ起動していなければフォールバック起動
+      if (!recognitions[activeIndex]) {
+        startInstance(activeIndex);
+      }
+    } else {
+      // 先行起動したインスタンスが予期せず終了 → 再起動
+      startInstance(index);
+    }
+  };
+
+  recognitions[index] = rec;
+  return rec;
+}
+
+// 指定インデックスのインスタンスを起動
+function startInstance(index) {
+  if (recognitions[index]) {
+    try { recognitions[index].stop(); } catch (e) {}
+    recognitions[index] = null;
+  }
+  const rec = setupRecognitionInstance(index);
+  rec.start();
+}
+
+// 次インスタンスを先行起動
+function preStartNextInstance() {
+  if (nextPreStarted) return;
+  nextPreStarted = true;
+  const nextIndex = (activeIndex + 1) % 2;
+  startInstance(nextIndex);
+}
+
 // 音声認識を開始
 function startRecognition() {
   if (!SpeechRecognition) {
@@ -153,67 +271,9 @@ function startRecognition() {
   }
 
   loadSettings().then(() => {
-    recognition = new SpeechRecognition();
-    recognition.lang = settings.language;
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      isActive = true;
-      isRestarting = false;
-      chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: true });
-      if (isInitialStart) {
-        console.log('[Voice Live Comment] 音声認識を開始しました');
-        isInitialStart = false;
-      }
-    };
-
-    recognition.onresult = (event) => {
-      let finalText = '';
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalText += transcript;
-        }
-      }
-
-      if (finalText) {
-        inputAndSubmit(finalText);
-      }
-    };
-
-    recognition.onerror = (event) => {
-      // 権限エラーは停止して通知
-      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-        sendError('マイクへのアクセスが拒否されました');
-        stopRecognition(true);
-        return;
-      }
-
-      // no-speech, aborted はonendで再開するので何もしない
-      if (event.error === 'no-speech' || event.error === 'aborted') {
-        return;
-      }
-
-      // その他のエラーは自動再試行
-      if (isActive) {
-        setTimeout(() => {
-          if (isActive) restartRecognition();
-        }, 100);
-      }
-    };
-
-    recognition.onend = () => {
-      // 自動再開（ユーザーが停止していない場合）
-      if (isActive && !isRestarting) {
-        isRestarting = true;
-        restartRecognition();
-      }
-    };
-
-    recognition.start();
+    activeIndex = 0;
+    nextPreStarted = false;
+    startInstance(0);
   });
 }
 
@@ -221,33 +281,19 @@ function startRecognition() {
 function stopRecognition(keepErrorBadge = false) {
   isActive = false;
   isInitialStart = true;
+  nextPreStarted = false;
 
-  if (recognition) {
-    try {
-      recognition.stop();
-    } catch (e) {
-      // 既に停止している場合は無視
+  for (let i = 0; i < 2; i++) {
+    if (recognitions[i]) {
+      try { recognitions[i].stop(); } catch (e) {}
+      recognitions[i] = null;
     }
-    recognition = null;
   }
 
   if (!keepErrorBadge) {
     chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: false });
   }
   console.log('[Voice Live Comment] 音声認識を停止しました');
-}
-
-// 音声認識を再開
-function restartRecognition() {
-  if (recognition) {
-    try {
-      recognition.stop();
-    } catch (e) {
-      // 無視
-    }
-    recognition = null;
-  }
-  startRecognition();
 }
 
 // メッセージ受信（チャット入力欄があるフレームのみ）
@@ -261,10 +307,10 @@ if (hasChat) {
       }
       sendResponse({ isActive });
     } else if (message.type === 'SETTINGS_UPDATED') {
-      // 設定更新時に再読み込み
       loadSettings().then(() => {
         if (isActive) {
-          restartRecognition();
+          stopRecognition();
+          startRecognition();
         }
       });
     }
