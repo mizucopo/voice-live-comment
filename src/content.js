@@ -319,6 +319,8 @@ function stopRecognition(keepErrorBadge = false) {
   isActive = false;
   isInitialStart = true;
   nextPreStarted = false;
+  hasFallbackFromLocal = false;
+  clearTimeout(startTimeoutId);
 
   for (let i = 0; i < 2; i++) {
     if (recognitions[i]) {
@@ -345,6 +347,7 @@ if (hasChat) {
       sendResponse({ isActive });
     } else if (message.type === 'SETTINGS_UPDATED') {
       loadSettings().then(() => {
+        hasFallbackFromLocal = false;
         if (isActive) {
           stopRecognition();
           startRecognition();

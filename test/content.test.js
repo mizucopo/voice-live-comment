@@ -197,5 +197,86 @@ describe('content.js', () => {
 
       vi.useRealTimers();
     });
+
+    it('フォールバック後に停止→再開でフォールバックフラグがリセットされる', async () => {
+      vi.resetModules();
+      chrome.storage.sync.get.mockResolvedValue({
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: true,
+        boostPhrases: [],
+        dictionary: ''
+      });
+      await import('../src/content.js');
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = vi.fn();
+
+      // 開始
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, sendResponse);
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // フォールバック発生
+      const instances = global.MockSpeechRecognition._instances;
+      instances[0].onerror({ error: 'not-allowed' });
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      const instanceCountAfterFallback = instances.length;
+      expect(instanceCountAfterFallback).toBeGreaterThanOrEqual(2);
+
+      // 停止
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, sendResponse);
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // 再開（フォールバックフラグがリセットされているため再度フォールバック可能）
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, sendResponse);
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // 新しいインスタンスが作成される
+      expect(instances.length).toBeGreaterThan(instanceCountAfterFallback);
+    });
+
+    it('SETTINGS_UPDATEDでフォールバック後に設定変更で再起動される', async () => {
+      vi.resetModules();
+      chrome.storage.sync.get.mockResolvedValue({
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: true,
+        boostPhrases: [],
+        dictionary: ''
+      });
+      await import('../src/content.js');
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+
+      // 開始
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, vi.fn());
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // フォールバック発生 → onstartを発火させてisActive=trueにする
+      const instances = global.MockSpeechRecognition._instances;
+      instances[0].onerror({ error: 'not-allowed' });
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // フォールバック後のインスタンスでonstartを発火
+      const fallbackInstance = instances[instances.length - 1];
+      if (fallbackInstance.onstart) fallbackInstance.onstart();
+
+      const instanceCountAfterFallback = instances.length;
+
+      // 設定更新（useLocalModelをtrueのまま）
+      chrome.storage.sync.get.mockResolvedValue({
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: true,
+        boostPhrases: [],
+        dictionary: ''
+      });
+      listener({ type: 'SETTINGS_UPDATED' }, {}, vi.fn());
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // 設定更新後、再起動により新しいインスタンスが作成される
+      expect(instances.length).toBeGreaterThan(instanceCountAfterFallback);
+    });
   });
 });
