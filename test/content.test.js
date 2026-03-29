@@ -137,5 +137,35 @@ describe('content.js', () => {
         expect.objectContaining({ type: 'SHOW_ERROR', message: expect.stringContaining('クラウド') })
       );
     });
+
+    it('processLocally=trueでstart()が例外を投げた場合クラウド認識へフォールバック', async () => {
+      vi.resetModules();
+      chrome.storage.sync.get.mockResolvedValue({
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: true,
+        boostPhrases: [],
+        dictionary: ''
+      });
+
+      // 最初のstart()呼び出しで例外を投げる
+      global.MockSpeechRecognition._startShouldThrow = new Error('start failed');
+
+      await import('../src/content.js');
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, vi.fn());
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // フォールバック確認: 2つ以上のインスタンスが作成されている
+      const instances = global.MockSpeechRecognition._instances;
+      expect(instances.length).toBeGreaterThanOrEqual(2);
+
+      // エラー通知が送信される
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'SHOW_ERROR' })
+      );
+    });
   });
 });

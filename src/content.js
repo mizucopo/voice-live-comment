@@ -273,7 +273,22 @@ function startInstance(index) {
     recognitions[index] = null;
   }
   const rec = setupRecognitionInstance(index);
-  rec.start();
+  try {
+    rec.start();
+    // onstart発火のタイムアウト監視（3秒）
+    clearTimeout(startTimeoutId);
+    startTimeoutId = setTimeout(() => {
+      if (settings.useLocalModel) {
+        console.warn('[Voice Live Comment] 認識開始タイムアウト');
+        fallbackToCloud(index, 'timeout');
+      }
+    }, 3000);
+  } catch (e) {
+    console.error('[Voice Live Comment] start()例外:', e);
+    if (settings.useLocalModel) {
+      fallbackToCloud(index, e.message);
+    }
+  }
 }
 
 // 次インスタンスを先行起動
