@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 字幕ちゃん(jimakuChan)の手法を取り入れ、デュアルバッファリング・オンデバイスモデル・ワードブースト・カスタム辞書を導入して音声認識精度を改善する。
+**Goal:** デュアルバッファリング・オンデバイスモデル・ワードブースト・カスタム辞書を導入して音声認識精度を改善する。
 
 **Architecture:** content.js の単一インスタンス認識を2インスタンスのデュアルバッファリングに変更。`continuous = false` で発話単位の高精度認識を実現し、認識結果取得時に次インスタンスを先行起動してギャップをなくす。新設定（オンデバイス、ワードブースト、カスタム辞書）を options に追加。
 
@@ -40,33 +40,33 @@ import { parseDictionaryRules, applyDictionary } from '../../src/utils/text.js';
 
 describe('parseDictionaryRules', () => {
   it('正しい形式のルールをパースする', () => {
-    const text = 'にしむら→西村\nじまく→字幕';
+    const text = 'とーきょー→東京\nぶろっこりー→ブロッコリー';
     const rules = parseDictionaryRules(text);
     expect(rules).toEqual([
-      { from: 'にしむら', to: '西村' },
-      { from: 'じまく', to: '字幕' }
+      { from: 'とーきょー', to: '東京' },
+      { from: 'ぶろっこりー', to: 'ブロッコリー' }
     ]);
   });
 
   it('空行を無視する', () => {
-    const text = 'にしむら→西村\n\nじまく→字幕\n';
+    const text = 'とーきょー→東京\n\nぶろっこりー→ブロッコリー\n';
     const rules = parseDictionaryRules(text);
     expect(rules).toEqual([
-      { from: 'にしむら', to: '西村' },
-      { from: 'じまく', to: '字幕' }
+      { from: 'とーきょー', to: '東京' },
+      { from: 'ぶろっこりー', to: 'ブロッコリー' }
     ]);
   });
 
   it('コメント行（#始まり）を無視する', () => {
-    const text = '# コメント\nにしむら→西村';
+    const text = '# コメント\nとーきょー→東京';
     const rules = parseDictionaryRules(text);
-    expect(rules).toEqual([{ from: 'にしむら', to: '西村' }]);
+    expect(rules).toEqual([{ from: 'とーきょー', to: '東京' }]);
   });
 
   it('矢印がない行を無視する', () => {
-    const text = '無効な行\nにしむら→西村';
+    const text = '無効な行\nとーきょー→東京';
     const rules = parseDictionaryRules(text);
-    expect(rules).toEqual([{ from: 'にしむら', to: '西村' }]);
+    expect(rules).toEqual([{ from: 'とーきょー', to: '東京' }]);
   });
 
   it('空文字は空配列を返す', () => {
@@ -86,7 +86,7 @@ describe('applyDictionary', () => {
       { from: 'にしむら', to: '西村' },
       { from: 'じまく', to: '字幕' }
     ];
-    expect(applyDictionary('にしむらさん、じまくちゃん', rules)).toBe('西村さん、字幕ちゃん');
+    expect(applyDictionary('とーきょーのぶろっこりー', rules)).toBe('東京のブロッコリー');
   });
 
   it('ルールが空の場合は元のテキストを返す', () => {
@@ -256,7 +256,7 @@ git commit -m "test: MockSpeechRecognition に processLocally/phrases を追加"
 
   <div class="form-group">
     <label for="dictionary">カスタム辞書</label>
-    <textarea id="dictionary" rows="5" placeholder="例:&#10;にしむら→西村&#10;じまく→字幕"></textarea>
+    <textarea id="dictionary" rows="5" placeholder="例:&#10;とーきょー→東京&#10;ぶろっこりー→ブロッコリー"></textarea>
     <div class="hint">誤認識→正しい表記 の形式で1行に1つ入力してください</div>
   </div>
 ```
@@ -337,14 +337,14 @@ it('新設定を保存済み値で読み込む', async () => {
     language: 'ja-JP',
     useLocalModel: true,
     boostPhrases: ['配信', 'コメント'],
-    dictionary: 'にしむら→西村'
+    dictionary: 'とーきょー→東京'
   });
 
   await loadSettings();
 
   expect(document.getElementById('useLocalModel').checked).toBe(true);
   expect(document.getElementById('boostPhrases').value).toBe('配信\nコメント');
-  expect(document.getElementById('dictionary').value).toBe('にしむら→西村');
+  expect(document.getElementById('dictionary').value).toBe('とーきょー→東京');
 });
 ```
 
@@ -392,7 +392,7 @@ it('新設定を保存する', async () => {
   languageInput.value = 'ja-JP';
   document.getElementById('useLocalModel').checked = true;
   document.getElementById('boostPhrases').value = '配信\nコメント';
-  document.getElementById('dictionary').value = 'にしむら→西村';
+  document.getElementById('dictionary').value = 'とーきょー→東京';
   chrome.tabs.query.mockResolvedValue([]);
 
   const result = await saveSettings();
@@ -402,7 +402,7 @@ it('新設定を保存する', async () => {
     language: 'ja-JP',
     useLocalModel: true,
     boostPhrases: ['配信', 'コメント'],
-    dictionary: 'にしむら→西村'
+    dictionary: 'とーきょー→東京'
   });
 });
 
