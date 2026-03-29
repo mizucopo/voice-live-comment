@@ -19,7 +19,7 @@ function parseDictionaryRules(text) {
     .filter(line => line && !line.startsWith('#'))
     .map(line => {
       const idx = line.indexOf('→');
-      if (idx === -1) return null;
+      if (idx <= 0) return null;
       return { from: line.slice(0, idx), to: line.slice(idx + 1) };
     })
     .filter(Boolean);
@@ -225,6 +225,8 @@ function setupRecognitionInstance(index) {
   rec.onend = () => {
     if (!isActive) return;
 
+    recognitions[index] = null;
+
     if (index === activeIndex) {
       // アクティブインスタンス終了 → 次に切り替え
       activeIndex = (index + 1) % 2;
@@ -235,7 +237,7 @@ function setupRecognitionInstance(index) {
       }
     } else {
       // 先行起動したインスタンスが予期せず終了 → 再起動
-      recognitions[index] = null;
+      startInstance(index);
     }
   };
 

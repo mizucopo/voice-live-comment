@@ -64,6 +64,12 @@ describe('parseDictionaryRules', () => {
     expect(rules).toEqual([{ from: 'とーきょー', to: '東京' }]);
   });
 
+  it('fromが空のルールを無視する', () => {
+    const text = '→東京\nとーきょー→東京';
+    const rules = parseDictionaryRules(text);
+    expect(rules).toEqual([{ from: 'とーきょー', to: '東京' }]);
+  });
+
   it('矢印がない行を無視する', () => {
     const text = '無効な行\nとーきょー→東京';
     const rules = parseDictionaryRules(text);
