@@ -1,3 +1,5 @@
+import { isTargetPage } from './utils/url.js';
+
 // アイコンクリック時の処理
 chrome.action.onClicked.addListener(async (tab) => {
   // YouTube/YouTube Studioのページかチェック
@@ -17,7 +19,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     try {
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ['content.js']
+        files: ['src/content.js']
       });
 
       // 少し待ってからメッセージ送信
@@ -32,15 +34,8 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
 });
 
-// 対象ページかどうか判定
-function isTargetPage(url) {
-  return url.includes('youtube.com/watch') ||
-         url.includes('youtube.com/live') ||
-         url.includes('studio.youtube.com');
-}
-
 // バッジ更新
-function updateBadge(isActive) {
+export function updateBadge(isActive) {
   if (isActive) {
     chrome.action.setBadgeText({ text: '●' });
     chrome.action.setBadgeBackgroundColor({ color: '#4CAF50' }); // 緑
@@ -50,13 +45,13 @@ function updateBadge(isActive) {
 }
 
 // エラーバッジ
-function setBadgeError() {
+export function setBadgeError() {
   chrome.action.setBadgeText({ text: '×' });
   chrome.action.setBadgeBackgroundColor({ color: '#F44336' }); // 赤
 }
 
 // 通知表示
-function showNotification(title, message) {
+export function showNotification(title, message) {
   chrome.notifications.create({
     type: 'basic',
     iconUrl: 'icons/icon48.png',

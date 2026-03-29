@@ -1,0 +1,16 @@
+{
+  "name": "voice-live-comment",
+  "version": "1.0.0",
+  "description": "音声認識でYouTube Liveにコメント投稿",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.0.0",
+    "jsdom": "^26.1.0",
+    "vitest": "^3.0.0"
+  }
+}
