@@ -48,6 +48,8 @@ global.chrome = {
 };
 
 // SpeechRecognition モック
+const mockInstances = [];
+
 class MockSpeechRecognition {
   constructor() {
     this.lang = '';
@@ -60,12 +62,26 @@ class MockSpeechRecognition {
     this.onresult = null;
     this.onerror = null;
     this.onend = null;
+    mockInstances.push(this);
   }
-  start() {}
+  start() {
+    if (MockSpeechRecognition._startShouldThrow) {
+      const error = MockSpeechRecognition._startShouldThrow;
+      MockSpeechRecognition._startShouldThrow = null;
+      throw error;
+    }
+  }
   stop() {}
 }
 
-global.webkitSpeechRecognition = vi.fn().mockImplementation(() => new MockSpeechRecognition());
+MockSpeechRecognition._instances = mockInstances;
+MockSpeechRecognition._startShouldThrow = null;
+
+global.MockSpeechRecognition = MockSpeechRecognition;
+const mockSRConstructor = vi.fn().mockImplementation(() => new MockSpeechRecognition());
+mockSRConstructor.available = vi.fn().mockResolvedValue('available');
+mockSRConstructor.install = vi.fn().mockResolvedValue(undefined);
+global.webkitSpeechRecognition = mockSRConstructor;
 global.SpeechRecognition = global.webkitSpeechRecognition;
 
 // テスト間でモックをリセット
@@ -85,4 +101,10 @@ beforeEach(() => {
 
   // Reset SpeechRecognition constructor tracking
   global.webkitSpeechRecognition.mockClear();
+
+  // Reset instance tracking
+  mockInstances.length = 0;
+  MockSpeechRecognition._startShouldThrow = null;
+  global.webkitSpeechRecognition.available.mockResolvedValue('available');
+  global.webkitSpeechRecognition.install.mockResolvedValue(undefined);
 });
