@@ -47,6 +47,8 @@ let settings = {
   dictionary: ''
 };
 let parsedRules = [];
+let hasFallbackFromLocal = false;
+let startTimeoutId = null;
 
 // チャット入力欄を取得
 function findChatInput() {
@@ -166,6 +168,20 @@ function inputAndSubmit(text) {
 // エラーをbackgroundに送信
 function sendError(message) {
   chrome.runtime.sendMessage({ type: 'SHOW_ERROR', message });
+}
+
+// processLocally失敗時にクラウド認識へフォールバック
+function fallbackToCloud(index, reason) {
+  if (hasFallbackFromLocal) return;
+  hasFallbackFromLocal = true;
+
+  console.warn('[Voice Live Comment] オンデバイス認識が利用できないため、クラウド認識に切り替えます:', reason);
+  sendError('オンデバイス認識が利用できないため、クラウド認識に切り替えました');
+
+  settings.useLocalModel = false;
+  activeIndex = 0;
+  nextPreStarted = false;
+  startInstance(0);
 }
 
 // 認識インスタンスをセットアップ
