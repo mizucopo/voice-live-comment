@@ -300,6 +300,46 @@ function preStartNextInstance() {
   startInstance(nextIndex);
 }
 
+// オンデバイスモデルの可用性確認とダウンロード
+async function ensureOnDeviceModel() {
+  if (typeof SpeechRecognition.available !== 'function') return true;
+
+  try {
+    const status = await SpeechRecognition.available({
+      langs: [settings.language],
+      processLocally: true
+    });
+
+    if (status === 'available') return true;
+
+    if ((status === 'downloadable' || status === 'downloading') && typeof SpeechRecognition.install === 'function') {
+      console.log('[Voice Live Comment] オンデバイスモデルをダウンロード中...');
+      await SpeechRecognition.install({
+        langs: [settings.language],
+        processLocally: true
+      });
+      // ダウンロード完了後に再度確認
+      const newStatus = await SpeechRecognition.available({
+        langs: [settings.language],
+        processLocally: true
+      });
+      if (newStatus === 'available') {
+        console.log('[Voice Live Comment] オンデバイスモデルのダウンロード完了');
+        return true;
+      }
+      console.warn('[Voice Live Comment] ダウンロード後も利用不可:', newStatus);
+      return false;
+    }
+
+    // unavailable
+    console.warn('[Voice Live Comment] オンデバイスモデル利用不可:', status);
+    return false;
+  } catch (e) {
+    console.error('[Voice Live Comment] オンデバイスモデル確認エラー:', e);
+    return false;
+  }
+}
+
 // 音声認識を開始
 function startRecognition() {
   if (!SpeechRecognition) {
@@ -307,7 +347,15 @@ function startRecognition() {
     return;
   }
 
-  loadSettings().then(() => {
+  loadSettings().then(async () => {
+    if (settings.useLocalModel) {
+      const ready = await ensureOnDeviceModel();
+      if (!ready) {
+        console.warn('[Voice Live Comment] オンデバイスモデルが利用できないため、クラウド認識を使用します');
+        sendError('オンデバイスモデルが利用できないため、クラウド認識を使用します');
+        settings.useLocalModel = false;
+      }
+    }
     activeIndex = 0;
     nextPreStarted = false;
     startInstance(0);

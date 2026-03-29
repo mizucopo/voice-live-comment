@@ -78,7 +78,10 @@ MockSpeechRecognition._instances = mockInstances;
 MockSpeechRecognition._startShouldThrow = null;
 
 global.MockSpeechRecognition = MockSpeechRecognition;
-global.webkitSpeechRecognition = vi.fn().mockImplementation(() => new MockSpeechRecognition());
+const mockSRConstructor = vi.fn().mockImplementation(() => new MockSpeechRecognition());
+mockSRConstructor.available = vi.fn().mockResolvedValue('available');
+mockSRConstructor.install = vi.fn().mockResolvedValue(undefined);
+global.webkitSpeechRecognition = mockSRConstructor;
 global.SpeechRecognition = global.webkitSpeechRecognition;
 
 // テスト間でモックをリセット
@@ -102,4 +105,6 @@ beforeEach(() => {
   // Reset instance tracking
   mockInstances.length = 0;
   MockSpeechRecognition._startShouldThrow = null;
+  global.webkitSpeechRecognition.available.mockResolvedValue('available');
+  global.webkitSpeechRecognition.install.mockResolvedValue(undefined);
 });
