@@ -40,7 +40,7 @@ describe('background.js', () => {
       showNotification('テストタイトル', 'テストメッセージ');
       expect(chrome.notifications.create).toHaveBeenCalledWith({
         type: 'basic',
-        iconUrl: 'icons/icon48.png',
+        iconUrl: 'icons/icon128.png',
         title: 'テストタイトル',
         message: 'テストメッセージ'
       });

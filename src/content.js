@@ -171,10 +171,13 @@ async function setupExternalPipeline(provider) {
   await vad.init();
 
   audioCapture.onPcmData((frame) => vad.processFrame(frame));
-  vad.onSpeechStart(() => audioCapture.startRecording());
+  vad.onSpeechStart(() => audioCapture?.startRecording());
   vad.onSpeechEnd(() => {
+    if (!audioCapture) return;
     const blob = audioCapture.stopRecording();
-    provider.sendAudio(blob);
+    if (blob.size > 0) {
+      provider.sendAudio(blob);
+    }
   });
 
   await audioCapture.start();

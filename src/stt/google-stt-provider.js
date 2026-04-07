@@ -8,7 +8,7 @@ export class GoogleSttProvider extends SttProvider {
   }
 
   async start() {
-    // no-op: GoogleSttProvider は sendAudio 経由で音声を受信
+    this._emitStart();
   }
 
   async stop() {

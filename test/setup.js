@@ -133,6 +133,13 @@ class MockAudioContext {
     };
     return processor;
   }
+  createGain() {
+    return {
+      gain: { value: 1 },
+      connect: vi.fn(),
+      disconnect: vi.fn()
+    };
+  }
   close() {
     this.state = 'closed';
   }

@@ -38,7 +38,12 @@ export class AudioCapture {
     };
 
     source.connect(this._scriptProcessor);
-    this._scriptProcessor.connect(this._audioContext.destination);
+    // ScriptProcessorはdestinationに接続しないとonaudioprocessが発火しないため、
+    // GainNode(無音)を経由してフィードバックループを防止する
+    const silentGain = this._audioContext.createGain();
+    silentGain.gain.value = 0;
+    this._scriptProcessor.connect(silentGain);
+    silentGain.connect(this._audioContext.destination);
 
     this._mediaRecorder = new MediaRecorder(this._stream, {
       mimeType: 'audio/webm;codecs=opus'
@@ -61,8 +66,19 @@ export class AudioCapture {
   }
 
   startRecording() {
+    const chunks = [];
+    // 最初のチャンク（WEBMヘッダーを含む）を必ず含める
+    if (this._allChunks.length > 0) {
+      chunks.push(this._allChunks[0]);
+    }
+    // 直近のチャンク（発話直前の音声コンテキスト）
     const preChunks = this._allChunks.slice(-2);
-    this._recordingChunks = [...preChunks];
+    for (const chunk of preChunks) {
+      if (!chunks.includes(chunk)) {
+        chunks.push(chunk);
+      }
+    }
+    this._recordingChunks = chunks;
     this._isRecording = true;
   }
 
