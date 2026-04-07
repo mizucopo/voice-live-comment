@@ -56,6 +56,10 @@ export class AudioCapture {
     this._mediaRecorder.ondataavailable = (e) => {
       if (e.data.size > 0) {
         this._allChunks.push(e.data);
+        // 最初のチャンク(WEBMヘッダー) + 直近19チャンク(約5秒分)に制限
+        if (this._allChunks.length > 20) {
+          this._allChunks = [this._allChunks[0], ...this._allChunks.slice(-19)];
+        }
         if (this._isRecording) {
           this._recordingChunks.push(e.data);
         }

@@ -265,9 +265,9 @@ if (hasChat) {
       }
       sendResponse({ isActive });
     } else if (message.type === 'SETTINGS_UPDATED') {
-      loadSettings().then(() => {
+      loadSettings().then(async () => {
         if (isActive) {
-          stopRecognition();
+          await stopRecognition();
           startRecognition();
         }
       });
