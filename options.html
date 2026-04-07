@@ -18,7 +18,19 @@
       margin-bottom: 4px;
       font-weight: 600;
     }
+    select {
+      width: 100%;
+      padding: 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
     input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    input[type="password"] {
       width: 100%;
       padding: 8px;
       font-size: 14px;
@@ -36,6 +48,14 @@
       color: #666;
       margin-top: 4px;
     }
+    .warning {
+      font-size: 13px;
+      color: #d32f2f;
+      padding: 8px;
+      background: #ffebee;
+      border-radius: 4px;
+      margin-bottom: 16px;
+    }
     button {
       padding: 8px 16px;
       font-size: 14px;
@@ -45,43 +65,76 @@
       margin-top: 12px;
       font-size: 14px;
     }
+    .provider-settings {
+      margin-top: 16px;
+      border-top: 1px solid #e0e0e0;
+      padding-top: 16px;
+    }
   </style>
 </head>
 <body>
   <h1>設定</h1>
 
   <div class="form-group">
-    <label>
-      <input type="checkbox" id="autoPost" checked>
-      自動投稿する
-    </label>
-    <div class="hint">オフの場合、テキストを入力欄に入れるだけで送信しません</div>
+    <label for="sttProvider">STTプロバイダー</label>
+    <select id="sttProvider">
+      <option value="browser">ブラウザ音声認識</option>
+      <option value="google">Google Cloud STT</option>
+      <option value="speechmatics">Speechmatics (未実装)</option>
+      <option value="deepgram">Deepgram (未実装)</option>
+    </select>
   </div>
 
-  <div class="form-group">
-    <label for="language">言語コード</label>
-    <input type="text" id="language" value="ja-JP" placeholder="例: ja-JP, en-US, ko-KR, zh-CN">
-    <div class="hint">音声認識の言語を指定します</div>
+  <div id="unimplementedWarning" class="warning" style="display:none">
+    このプロバイダーはまだ実装されていません。
   </div>
 
-  <div class="form-group">
-    <label>
-      <input type="checkbox" id="useLocalModel">
-      オンデバイスモデルを使用（Chrome 138+）
-    </label>
-    <div class="hint">音声をローカルで処理します。初回はモデルのダウンロードが必要です</div>
-  </div>
+  <div class="provider-settings">
+    <div class="form-group">
+      <label>
+        <input type="checkbox" id="autoPost" checked>
+        自動投稿する
+      </label>
+      <div class="hint">オフの場合、テキストを入力欄に入れるだけで送信しません</div>
+    </div>
 
-  <div class="form-group">
-    <label for="boostPhrases">ワードブースト</label>
-    <textarea id="boostPhrases" rows="3" placeholder="例: 配信名、よく使う言葉"></textarea>
-    <div class="hint">認識優先度を上げたい言葉を1行に1つ入力（オンデバイスモデル使用時のみ有効）</div>
-  </div>
+    <div class="form-group">
+      <label for="language">言語コード</label>
+      <input type="text" id="language" value="ja-JP" placeholder="例: ja-JP, en-US, ko-KR, zh-CN">
+      <div class="hint">音声認識の言語を指定します</div>
+    </div>
 
-  <div class="form-group">
-    <label for="dictionary">カスタム辞書</label>
-    <textarea id="dictionary" rows="5" placeholder="例:&#10;とーきょー→東京&#10;ぶろっこりー→ブロッコリー"></textarea>
-    <div class="hint">誤認識→正しい表記 の形式で1行に1つ入力してください</div>
+    <div id="browserSettings">
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="useLocalModel">
+          オンデバイスモデルを使用（Chrome 138+）
+        </label>
+        <div class="hint">音声をローカルで処理します。初回はモデルのダウンロードが必要です</div>
+      </div>
+
+      <div class="form-group">
+        <label for="boostPhrases">ワードブースト</label>
+        <textarea id="boostPhrases" rows="3" placeholder="例: 配信名、よく使う言葉"></textarea>
+        <div class="hint">認識優先度を上げたい言葉を1行に1つ入力（オンデバイスモデル使用時のみ有効）</div>
+      </div>
+
+      <div class="form-group">
+        <label for="dictionary">カスタム辞書</label>
+        <textarea id="dictionary" rows="5" placeholder="例:&#10;とーきょー→東京&#10;ぶろっこりー→ブロッコリー"></textarea>
+        <div class="hint">誤認識→正しい表記 の形式で1行に1つ入力してください</div>
+      </div>
+    </div>
+
+    <div id="googleSettings" style="display:none">
+      <div class="form-group">
+        <label for="googleApiKey">APIキー</label>
+        <input type="password" id="googleApiKey" placeholder="Google Cloud APIキー">
+        <div class="hint">
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a>でAPIキーを作成してください。Speech-to-Text APIを有効化する必要があります。
+        </div>
+      </div>
+    </div>
   </div>
 
   <button id="save">保存</button>
