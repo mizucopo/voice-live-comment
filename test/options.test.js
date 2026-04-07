@@ -9,11 +9,22 @@ describe('options.js', () => {
   beforeEach(() => {
     // DOM構築
     document.body.innerHTML = `
-      <input type="checkbox" id="autoPost" />
-      <input type="text" id="language" />
-      <input type="checkbox" id="useLocalModel" />
-      <textarea id="boostPhrases"></textarea>
-      <textarea id="dictionary"></textarea>
+      <select id="sttProvider">
+        <option value="browser">ブラウザ音声認識</option>
+        <option value="google">Google Cloud STT</option>
+        <option value="speechmatics">Speechmatics</option>
+        <option value="deepgram">Deepgram</option>
+      </select>
+      <input type="password" id="googleApiKey" />
+      <div id="browserSettings">
+        <input type="checkbox" id="autoPost" />
+        <input type="text" id="language" />
+        <input type="checkbox" id="useLocalModel" />
+        <textarea id="boostPhrases"></textarea>
+        <textarea id="dictionary"></textarea>
+      </div>
+      <div id="googleSettings" style="display:none"></div>
+      <div id="unimplementedWarning" class="warning" style="display:none"></div>
       <div id="status"></div>
       <button id="save">保存</button>
     `;
@@ -32,26 +43,31 @@ describe('options.js', () => {
   describe('loadSettings', () => {
     it('デフォルト値で設定を読み込む', async () => {
       chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'browser',
         autoPost: true,
         language: 'ja-JP',
         useLocalModel: false,
         boostPhrases: [],
-        dictionary: ''
+        dictionary: '',
+        googleApiKey: ''
       });
 
       await loadSettings();
 
+      expect(document.getElementById('sttProvider').value).toBe('browser');
       expect(autoPostCheckbox.checked).toBe(true);
       expect(languageInput.value).toBe('ja-JP');
     });
 
     it('保存済み設定を読み込む', async () => {
       chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'browser',
         autoPost: false,
         language: 'en-US',
         useLocalModel: true,
         boostPhrases: ['配信', 'コメント'],
-        dictionary: 'とーきょー→東京'
+        dictionary: 'とーきょー→東京',
+        googleApiKey: ''
       });
 
       await loadSettings();
@@ -73,11 +89,13 @@ describe('options.js', () => {
       const result = await saveSettings();
 
       expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        sttProvider: 'browser',
         autoPost: true,
         language: 'en-US',
         useLocalModel: false,
         boostPhrases: [],
-        dictionary: ''
+        dictionary: '',
+        googleApiKey: ''
       });
     });
 
@@ -89,11 +107,13 @@ describe('options.js', () => {
       const result = await saveSettings();
 
       expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        sttProvider: 'browser',
         autoPost: true,
         language: 'ja-JP',
         useLocalModel: false,
         boostPhrases: [],
-        dictionary: ''
+        dictionary: '',
+        googleApiKey: ''
       });
     });
 
@@ -133,11 +153,13 @@ describe('options.js', () => {
       const result = await saveSettings();
 
       expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        sttProvider: 'browser',
         autoPost: true,
         language: 'ja-JP',
         useLocalModel: true,
         boostPhrases: ['配信', 'コメント'],
-        dictionary: 'とーきょー→東京'
+        dictionary: 'とーきょー→東京',
+        googleApiKey: ''
       });
     });
 
@@ -152,6 +174,104 @@ describe('options.js', () => {
       expect(chrome.storage.sync.set).toHaveBeenCalledWith(
         expect.objectContaining({ boostPhrases: ['配信', 'コメント'] })
       );
+    });
+  });
+
+  describe('STT Provider設定', () => {
+    beforeEach(() => {
+      document.body.innerHTML = `
+        <select id="sttProvider">
+          <option value="browser">ブラウザ音声認識</option>
+          <option value="google">Google Cloud STT</option>
+          <option value="speechmatics">Speechmatics</option>
+          <option value="deepgram">Deepgram</option>
+        </select>
+        <input type="password" id="googleApiKey" />
+        <div id="browserSettings">
+          <input type="checkbox" id="useLocalModel" />
+          <textarea id="boostPhrases"></textarea>
+          <textarea id="dictionary"></textarea>
+        </div>
+        <div id="googleSettings" style="display:none"></div>
+        <div id="unimplementedWarning" class="warning" style="display:none"></div>
+        <input type="checkbox" id="autoPost" />
+        <input type="text" id="language" value="ja-JP" />
+        <div id="status"></div>
+        <button id="save">保存</button>
+      `;
+      vi.clearAllMocks();
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('sttProvider設定を保存・読み込みする', async () => {
+      chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'google',
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: false,
+        boostPhrases: [],
+        dictionary: '',
+        googleApiKey: 'test-key'
+      });
+
+      await loadSettings();
+
+      expect(document.getElementById('sttProvider').value).toBe('google');
+      expect(document.getElementById('googleApiKey').value).toBe('test-key');
+    });
+
+    it('ブラウザ選択時にブラウザ設定が表示される', async () => {
+      chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'browser',
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: false,
+        boostPhrases: [],
+        dictionary: '',
+        googleApiKey: ''
+      });
+
+      await loadSettings();
+
+      expect(document.getElementById('browserSettings').style.display).not.toBe('none');
+      expect(document.getElementById('googleSettings').style.display).toBe('none');
+    });
+
+    it('Google選択時にGoogle設定が表示される', async () => {
+      chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'google',
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: false,
+        boostPhrases: [],
+        dictionary: '',
+        googleApiKey: 'test-key'
+      });
+
+      await loadSettings();
+
+      expect(document.getElementById('browserSettings').style.display).toBe('none');
+      expect(document.getElementById('googleSettings').style.display).not.toBe('none');
+    });
+
+    it('未実装プロバイダー選択時に警告が表示される', async () => {
+      chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'speechmatics',
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: false,
+        boostPhrases: [],
+        dictionary: '',
+        googleApiKey: ''
+      });
+
+      await loadSettings();
+
+      expect(document.getElementById('unimplementedWarning').style.display).not.toBe('none');
     });
   });
 });

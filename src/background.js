@@ -19,7 +19,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     try {
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ['src/content.js']
+        files: ['dist/content.js']
       });
 
       // 少し待ってからメッセージ送信
@@ -54,9 +54,11 @@ export function setBadgeError() {
 export function showNotification(title, message) {
   chrome.notifications.create({
     type: 'basic',
-    iconUrl: 'icons/icon48.png',
+    iconUrl: 'icons/icon128.png',
     title: title,
     message: message
+  }).catch(err => {
+    console.error('[Voice Live Comment] 通知表示エラー:', err);
   });
 }
 
@@ -65,6 +67,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'UPDATE_BADGE') {
     updateBadge(message.isActive);
   } else if (message.type === 'SHOW_ERROR') {
+    console.error('[Voice Live Comment] エラー:', message.message);
     setBadgeError();
     showNotification('エラー', message.message);
   }

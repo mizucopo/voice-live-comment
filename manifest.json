@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Voice Live Comment",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "音声認識でYouTube Liveにコメント投稿",
   "permissions": [
     "storage",
@@ -24,7 +24,7 @@
         "*://www.youtube.com/watch*",
         "*://studio.youtube.com/*"
       ],
-      "js": ["src/content.js"],
+      "js": ["dist/content.js"],
       "all_frames": true
     }
   ],
@@ -40,5 +40,6 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "web_accessible_resources": []
 }

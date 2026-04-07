@@ -84,6 +84,79 @@ mockSRConstructor.install = vi.fn().mockResolvedValue(undefined);
 global.webkitSpeechRecognition = mockSRConstructor;
 global.SpeechRecognition = global.webkitSpeechRecognition;
 
+// MediaRecorder モック
+class MockMediaRecorder {
+  constructor(stream, options) {
+    this.stream = stream;
+    this.options = options;
+    this.state = 'inactive';
+    this.ondataavailable = null;
+    this.onstop = null;
+  }
+  start(timeslice) {
+    this.state = 'recording';
+    this._timeslice = timeslice;
+  }
+  stop() {
+    this.state = 'inactive';
+  }
+  _simulateChunk(data) {
+    if (this.ondataavailable) {
+      this.ondataavailable({ data: new Blob([data], { type: 'audio/webm;codecs=opus' }) });
+    }
+  }
+}
+
+global.MockMediaRecorder = MockMediaRecorder;
+global.MediaRecorder = MockMediaRecorder;
+
+// AudioContext モック
+class MockAudioContext {
+  constructor() {
+    this.sampleRate = 48000;
+    this.state = 'running';
+  }
+  createMediaStreamSource(stream) {
+    return {
+      connect: vi.fn(),
+      disconnect: vi.fn()
+    };
+  }
+  createScriptProcessor(bufferSize, numInput, numOutput) {
+    const processor = {
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      onaudioprocess: null,
+      bufferSize,
+      numberOfInputs: numInput,
+      numberOfOutputs: numOutput
+    };
+    return processor;
+  }
+  createGain() {
+    return {
+      gain: { value: 1 },
+      connect: vi.fn(),
+      disconnect: vi.fn()
+    };
+  }
+  close() {
+    this.state = 'closed';
+  }
+}
+
+global.AudioContext = MockAudioContext;
+global.webkitAudioContext = MockAudioContext;
+
+// navigator.mediaDevices.getUserMedia モック
+const mockStream = {
+  getTracks: vi.fn().mockReturnValue([{ stop: vi.fn() }])
+};
+
+if (!global.navigator) global.navigator = {};
+if (!global.navigator.mediaDevices) global.navigator.mediaDevices = {};
+global.navigator.mediaDevices.getUserMedia = vi.fn().mockResolvedValue(mockStream);
+
 // テスト間でモックをリセット
 beforeEach(() => {
   vi.clearAllMocks();
@@ -107,4 +180,7 @@ beforeEach(() => {
   MockSpeechRecognition._startShouldThrow = null;
   global.webkitSpeechRecognition.available.mockResolvedValue('available');
   global.webkitSpeechRecognition.install.mockResolvedValue(undefined);
+
+  // Reset getUserMedia mock
+  global.navigator.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
 });
