@@ -1,55 +1,26 @@
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+import { trimText, parseDictionaryRules, applyDictionary } from './utils/text.js';
+import { BrowserSttProvider } from './stt/browser-stt-provider.js';
+import { GoogleSttProvider } from './stt/google-stt-provider.js';
+import { SpeechmaticsSttProvider } from './stt/speechmatics-stt-provider.js';
+import { DeepgramSttProvider } from './stt/deepgram-stt-provider.js';
+import { AudioCapture } from './audio-capture.js';
+import { Vad } from './vad.js';
 
-// テキストをトリムし、連続する空白を1つにまとめる
-function trimText(text) {
-  if (!text || typeof text !== 'string') {
-    return '';
-  }
-  return text.trim().replace(/\s+/g, ' ');
-}
-
-// 辞書テキストをパースして置換ルール配列に変換する
-function parseDictionaryRules(text) {
-  if (!text || typeof text !== 'string') {
-    return [];
-  }
-  return text
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line && !line.startsWith('#'))
-    .map(line => {
-      const idx = line.indexOf('→');
-      if (idx <= 0) return null;
-      return { from: line.slice(0, idx), to: line.slice(idx + 1) };
-    })
-    .filter(Boolean);
-}
-
-// 置換ルールをテキストに適用する
-function applyDictionary(text, rules) {
-  for (const rule of rules) {
-    text = text.replaceAll(rule.from, rule.to);
-  }
-  return text;
-}
-
-// デュアルバッファリング状態
-const recognitions = [null, null];
-let activeIndex = 0;
-let nextPreStarted = false;
 let isActive = false;
 let isStarting = false;
-let isInitialStart = true;
+let currentProvider = null;
+let audioCapture = null;
+let vad = null;
 let settings = {
+  sttProvider: 'browser',
   autoPost: true,
   language: 'ja-JP',
   useLocalModel: false,
   boostPhrases: [],
-  dictionary: ''
+  dictionary: '',
+  googleApiKey: ''
 };
 let parsedRules = [];
-let hasFallbackFromLocal = false;
-let startTimeoutId = null;
 
 // チャット入力欄を取得
 function findChatInput() {
@@ -83,11 +54,13 @@ const hasChat = !!findChatInput();
 // 設定を読み込む
 async function loadSettings() {
   const result = await chrome.storage.sync.get({
+    sttProvider: 'browser',
     autoPost: true,
     language: 'ja-JP',
     useLocalModel: false,
     boostPhrases: [],
-    dictionary: ''
+    dictionary: '',
+    googleApiKey: ''
   });
   settings = result;
   parsedRules = parseDictionaryRules(settings.dictionary);
@@ -171,223 +144,104 @@ function sendError(message) {
   chrome.runtime.sendMessage({ type: 'SHOW_ERROR', message });
 }
 
-// processLocally失敗時にクラウド認識へフォールバック
-function fallbackToCloud(index, reason) {
-  if (hasFallbackFromLocal) return;
-  hasFallbackFromLocal = true;
-
-  console.warn('[Voice Live Comment] オンデバイス認識が利用できないため、クラウド認識に切り替えます:', reason);
-  sendError('オンデバイス認識が利用できないため、クラウド認識に切り替えました');
-
-  settings.useLocalModel = false;
-  activeIndex = 0;
-  nextPreStarted = false;
-  startInstance(0);
-}
-
-// 認識インスタンスをセットアップ
-function setupRecognitionInstance(index) {
-  const rec = new SpeechRecognition();
-
-  rec.lang = settings.language;
-  rec.continuous = false;
-  rec.interimResults = true;
-  rec.maxAlternatives = 1;
-
-  // オンデバイスモデル（Chrome 138+）
-  if (settings.useLocalModel && 'processLocally' in rec) {
-    rec.processLocally = true;
-  }
-
-  // ワードブースト（Chrome 138+, オンデバイスのみ）
-  if (settings.useLocalModel && typeof SpeechRecognitionPhrase !== 'undefined' && settings.boostPhrases.length > 0) {
-    rec.phrases = settings.boostPhrases.map(p => new SpeechRecognitionPhrase(p, 10.0));
-  }
-
-  rec.onstart = () => {
-    clearTimeout(startTimeoutId);
-    if (isInitialStart) {
-      isActive = true;
-      chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: true });
-      console.log('[Voice Live Comment] 音声認識を開始しました');
-      isInitialStart = false;
-    }
-  };
-
-  rec.onresult = (event) => {
-    let finalText = '';
-    let hasFinal = false;
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      if (event.results[i].isFinal) {
-        finalText += event.results[i][0].transcript;
-        hasFinal = true;
-      }
-    }
-    if (finalText) {
-      inputAndSubmit(finalText);
-    }
-    // アクティブインスタンスの最終結果で次を先行起動
-    if (hasFinal && index === activeIndex) {
-      preStartNextInstance();
-    }
-  };
-
-  rec.onerror = (event) => {
-    if (event.error === 'not-allowed' || event.error === 'service-not-allowed' || event.error === 'language-not-supported') {
-      if (settings.useLocalModel) {
-        fallbackToCloud(index, event.error);
-        return;
-      }
-      sendError('マイクへのアクセスが拒否されました');
-      stopRecognition(true);
-      return;
-    }
-    console.warn('[Voice Live Comment] 認識エラー:', event.error);
-  };
-
-  rec.onend = () => {
-    if (!isActive) return;
-
-    recognitions[index] = null;
-
-    if (index === activeIndex) {
-      // アクティブインスタンス終了 → 次に切り替え
-      activeIndex = (index + 1) % 2;
-      nextPreStarted = false;
-      // 次がまだ起動していなければフォールバック起動
-      if (!recognitions[activeIndex]) {
-        startInstance(activeIndex);
-      }
-    } else {
-      // 先行起動したインスタンスが予期せず終了 → 再起動
-      startInstance(index);
-    }
-  };
-
-  recognitions[index] = rec;
-  return rec;
-}
-
-// 指定インデックスのインスタンスを起動
-function startInstance(index) {
-  if (recognitions[index]) {
-    try { recognitions[index].stop(); } catch (e) {}
-    recognitions[index] = null;
-  }
-  const rec = setupRecognitionInstance(index);
-  try {
-    rec.start();
-    // onstart発火のタイムアウト監視（3秒）
-    clearTimeout(startTimeoutId);
-    startTimeoutId = setTimeout(() => {
-      if (settings.useLocalModel) {
-        console.warn('[Voice Live Comment] 認識開始タイムアウト');
-        fallbackToCloud(index, 'timeout');
-      }
-    }, 3000);
-  } catch (e) {
-    console.error('[Voice Live Comment] start()例外:', e);
-    if (settings.useLocalModel) {
-      fallbackToCloud(index, e.message);
-    }
-  }
-}
-
-// 次インスタンスを先行起動
-function preStartNextInstance() {
-  if (nextPreStarted) return;
-  nextPreStarted = true;
-  const nextIndex = (activeIndex + 1) % 2;
-  startInstance(nextIndex);
-}
-
-// オンデバイスモデルの可用性確認とダウンロード
-async function ensureOnDeviceModel() {
-  if (typeof SpeechRecognition.available !== 'function') return true;
-
-  try {
-    const status = await SpeechRecognition.available({
-      langs: [settings.language],
-      processLocally: true
-    });
-
-    if (status === 'available') return true;
-
-    if ((status === 'downloadable' || status === 'downloading') && typeof SpeechRecognition.install === 'function') {
-      console.log('[Voice Live Comment] オンデバイスモデルをダウンロード中...');
-      await SpeechRecognition.install({
-        langs: [settings.language],
-        processLocally: true
+// プロバイダーを作成
+function createProvider() {
+  switch (settings.sttProvider) {
+    case 'google':
+      return new GoogleSttProvider(settings.googleApiKey, settings.language);
+    case 'speechmatics':
+      return new SpeechmaticsSttProvider();
+    case 'deepgram':
+      return new DeepgramSttProvider();
+    case 'browser':
+    default:
+      return new BrowserSttProvider({
+        language: settings.language,
+        useLocalModel: settings.useLocalModel,
+        boostPhrases: settings.boostPhrases
       });
-      // ダウンロード完了後に再度確認
-      const newStatus = await SpeechRecognition.available({
-        langs: [settings.language],
-        processLocally: true
-      });
-      if (newStatus === 'available') {
-        console.log('[Voice Live Comment] オンデバイスモデルのダウンロード完了');
-        return true;
-      }
-      console.warn('[Voice Live Comment] ダウンロード後も利用不可:', newStatus);
-      return false;
-    }
-
-    // unavailable
-    console.warn('[Voice Live Comment] オンデバイスモデル利用不可:', status);
-    return false;
-  } catch (e) {
-    console.error('[Voice Live Comment] オンデバイスモデル確認エラー:', e);
-    return false;
   }
+}
+
+// 外部API用のAudioCapture + VADパイプラインをセットアップ
+async function setupExternalPipeline(provider) {
+  audioCapture = new AudioCapture();
+  vad = new Vad();
+
+  await vad.init();
+
+  audioCapture.onPcmData((frame) => vad.processFrame(frame));
+  vad.onSpeechStart(() => audioCapture.startRecording());
+  vad.onSpeechEnd(() => {
+    const blob = audioCapture.stopRecording();
+    provider.sendAudio(blob);
+  });
+
+  await audioCapture.start();
 }
 
 // 音声認識を開始
-function startRecognition() {
-  if (!SpeechRecognition) {
-    sendError('このブラウザは音声認識に対応していません');
+async function startRecognition() {
+  await loadSettings();
+
+  let provider;
+  try {
+    provider = createProvider();
+  } catch (error) {
+    sendError(error.message);
     return;
   }
 
-  isStarting = true;
+  currentProvider = provider;
 
-  loadSettings().then(async () => {
-    if (settings.useLocalModel) {
-      const ready = await ensureOnDeviceModel();
-      if (!ready) {
-        console.warn('[Voice Live Comment] オンデバイスモデルが利用できないため、クラウド認識を使用します');
-        sendError('オンデバイスモデルが利用できないため、クラウド認識を使用します');
-        settings.useLocalModel = false;
-      }
-    }
-    // 起動中にキャンセルされた場合は中止
-    if (!isStarting) return;
-    activeIndex = 0;
-    nextPreStarted = false;
-    startInstance(0);
-  }).finally(() => {
-    isStarting = false;
+  provider.onStart(() => {
+    isActive = true;
+    chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: true });
+    console.log('[Voice Live Comment] 音声認識を開始しました');
   });
+
+  provider.onResult((text) => {
+    inputAndSubmit(text);
+  });
+
+  provider.onError((error) => {
+    sendError(error.message);
+  });
+
+  // 外部API使用時はAudioCapture + VADパイプラインを初期化
+  if (settings.sttProvider !== 'browser') {
+    try {
+      await setupExternalPipeline(provider);
+    } catch (error) {
+      sendError('VADの初期化に失敗しました: ' + error.message);
+      currentProvider = null;
+      return;
+    }
+  }
+
+  try {
+    await provider.start();
+  } catch (error) {
+    sendError(error.message);
+    currentProvider = null;
+  }
 }
 
 // 音声認識を停止
-function stopRecognition(keepErrorBadge = false) {
+async function stopRecognition() {
   isActive = false;
-  isStarting = false;
-  isInitialStart = true;
-  nextPreStarted = false;
-  hasFallbackFromLocal = false;
-  clearTimeout(startTimeoutId);
 
-  for (let i = 0; i < 2; i++) {
-    if (recognitions[i]) {
-      try { recognitions[i].stop(); } catch (e) {}
-      recognitions[i] = null;
-    }
+  if (audioCapture) {
+    try { await audioCapture.stop(); } catch (e) {}
+    audioCapture = null;
   }
 
-  if (!keepErrorBadge) {
-    chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: false });
+  if (currentProvider) {
+    try { await currentProvider.stop(); } catch (e) {}
+    currentProvider = null;
   }
+
+  chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: false });
   console.log('[Voice Live Comment] 音声認識を停止しました');
 }
 
@@ -398,16 +252,17 @@ if (hasChat) {
       if (isActive) {
         stopRecognition();
       } else if (isStarting) {
-        // 起動処理中は追加の起動を防止（キャンセルもしない）
         sendResponse({ isActive: false });
         return true;
       } else {
-        startRecognition();
+        isStarting = true;
+        startRecognition().finally(() => {
+          isStarting = false;
+        });
       }
       sendResponse({ isActive });
     } else if (message.type === 'SETTINGS_UPDATED') {
       loadSettings().then(() => {
-        hasFallbackFromLocal = false;
         if (isActive) {
           stopRecognition();
           startRecognition();

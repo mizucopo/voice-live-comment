@@ -25,6 +25,7 @@
         "*://studio.youtube.com/*"
       ],
       "js": ["src/content.js"],
+      "type": "module",
       "all_frames": true
     }
   ],
