@@ -85,6 +85,15 @@ describe('parseDictionaryRules', () => {
     expect(parseDictionaryRules(null)).toEqual([]);
     expect(parseDictionaryRules(undefined)).toEqual([]);
   });
+
+  it('矢印の前後の空白をtrimする', () => {
+    const text = 'とーきょー → 東京\nぶろっこりー  →  ブロッコリー';
+    const rules = parseDictionaryRules(text);
+    expect(rules).toEqual([
+      { from: 'とーきょー', to: '東京' },
+      { from: 'ぶろっこりー', to: 'ブロッコリー' }
+    ]);
+  });
 });
 
 describe('applyDictionary', () => {
