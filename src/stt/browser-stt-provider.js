@@ -79,6 +79,7 @@ export class BrowserSttProvider extends SttProvider {
     };
 
     rec.onresult = (event) => {
+      if (this.recognitions[index] !== rec) return;
       let finalText = '';
       let hasFinal = false;
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -175,7 +176,7 @@ export class BrowserSttProvider extends SttProvider {
 
     this.startInstance(0);
 
-    this._emitError(new Error('オンデバイス認識が利用できないため、クラウド認識に切り替えました'));
+    this._emitError(new Error(`オンデバイス認識が利用できないため、クラウド認識に切り替えました (${reason})`));
   }
 
   async ensureOnDeviceModel() {
