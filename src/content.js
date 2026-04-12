@@ -239,6 +239,11 @@ async function stopRecognition() {
     audioCapture = null;
   }
 
+  if (vad) {
+    vad.destroy();
+    vad = null;
+  }
+
   if (currentProvider) {
     try { await currentProvider.stop(); } catch (e) {}
     currentProvider = null;
