@@ -286,11 +286,20 @@ if (hasChat) {
         return true;
       } else {
         isStarting = true;
-        startRecognition().catch((error) => {
-          console.error('[Voice Live Comment] startRecognition failed:', error);
-          sendError('音声認識の開始に失敗しました: ' + error.message);
-          isStarting = false;
-        });
+        const startSafetyTimer = setTimeout(() => {
+          if (isStarting && !isActive) {
+            console.warn('[Voice Live Comment] 音声認識の開始がタイムアウトしました');
+            isStarting = false;
+            sendError('音声認識の開始がタイムアウトしました。再度お試しください。');
+          }
+        }, 10000);
+        startRecognition()
+          .catch((error) => {
+            console.error('[Voice Live Comment] startRecognition failed:', error);
+            sendError('音声認識の開始に失敗しました: ' + error.message);
+            isStarting = false;
+          })
+          .finally(() => clearTimeout(startSafetyTimer));
       }
       sendResponse({ isActive });
     } else if (message.type === 'SETTINGS_UPDATED') {
@@ -299,11 +308,20 @@ if (hasChat) {
           await stopRecognition();
           // 並行するトグル操作からの二重起動を防止するため isStarting ガードを使用
           isStarting = true;
-          startRecognition().catch((error) => {
-            console.error('[Voice Live Comment] startRecognition failed:', error);
-            sendError('音声認識の開始に失敗しました: ' + error.message);
-            isStarting = false;
-          });
+          const startSafetyTimer = setTimeout(() => {
+            if (isStarting && !isActive) {
+              console.warn('[Voice Live Comment] 音声認識の開始がタイムアウトしました');
+              isStarting = false;
+              sendError('音声認識の開始がタイムアウトしました。再度お試しください。');
+            }
+          }, 10000);
+          startRecognition()
+            .catch((error) => {
+              console.error('[Voice Live Comment] startRecognition failed:', error);
+              sendError('音声認識の開始に失敗しました: ' + error.message);
+              isStarting = false;
+            })
+            .finally(() => clearTimeout(startSafetyTimer));
         }
       });
     }
