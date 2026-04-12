@@ -158,6 +158,46 @@ describe('content.js', () => {
       expect(errorCalls).toHaveLength(0);
     });
 
+    it('SETTINGS_UPDATED再起動中のトグルが並行起動を引き起こさない', async () => {
+      vi.resetModules();
+      chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'browser',
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: false,
+        boostPhrases: [],
+        dictionary: '',
+        googleApiKey: ''
+      });
+      await import('../src/content.js');
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = vi.fn();
+
+      // 1) 開始してアクティブにする
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, sendResponse);
+      await new Promise(r => setTimeout(r, 50));
+      global.MockSpeechRecognition._instances.at(-1).onstart();
+      await new Promise(r => setTimeout(r, 10));
+
+      // 2) SETTINGS_UPDATED で再起動 → 即座にトグル（並行起動を試みる）
+      listener({ type: 'SETTINGS_UPDATED' }, {}, vi.fn());
+      await new Promise(r => setTimeout(r, 10));
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, sendResponse);
+      await new Promise(r => setTimeout(r, 100));
+
+      // 新しい onstart を発火
+      const newInstance = global.MockSpeechRecognition._instances.at(-1);
+      if (newInstance) newInstance.onstart();
+      await new Promise(r => setTimeout(r, 50));
+
+      // 3) エラーなく完了することを確認
+      const errorCalls = chrome.runtime.sendMessage.mock.calls.filter(
+        call => call[0] && call[0].type === 'SHOW_ERROR'
+      );
+      expect(errorCalls).toHaveLength(0);
+    });
+
     it('未実装プロバイダー選択時にエラー通知', async () => {
       vi.resetModules();
       chrome.storage.sync.get.mockResolvedValue({
