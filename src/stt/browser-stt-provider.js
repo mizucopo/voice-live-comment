@@ -165,6 +165,14 @@ export class BrowserSttProvider extends SttProvider {
     this.settings = { ...this.settings, useLocalModel: false };
     this.activeIndex = 0;
     this.nextPreStarted = false;
+
+    for (let i = 0; i < 2; i++) {
+      if (this.recognitions[i]) {
+        try { this.recognitions[i].stop(); } catch (e) {}
+        this.recognitions[i] = null;
+      }
+    }
+
     this.startInstance(0);
 
     this._emitError(new Error('オンデバイス認識が利用できないため、クラウド認識に切り替えました'));

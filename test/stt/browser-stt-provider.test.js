@@ -94,6 +94,39 @@ describe('BrowserSttProvider', () => {
     expect(onError).toHaveBeenCalled();
   });
 
+  it('fallbackToCloud() 後に旧インスタンスのonendでゴーストが生成されない', async () => {
+    settings.useLocalModel = true;
+    provider = new BrowserSttProvider(settings);
+    const onError = vi.fn();
+    provider.onError(onError);
+    await provider.start();
+
+    const instances = global.MockSpeechRecognition._instances;
+
+    // インスタンス0開始
+    instances[0].onstart();
+
+    // インスタンス0で最終結果 → preStartNextInstance → インスタンス1開始
+    instances[0].onresult({
+      resultIndex: 0,
+      results: [{ isFinal: true, 0: { transcript: 'テスト' } }]
+    });
+    expect(instances.length).toBe(2);
+
+    // インスタンス0終了 → activeIndex = 1 に切り替え
+    instances[0].onend();
+
+    // インスタンス1でエラー発生 → フォールバック (index=1から)
+    instances[1].onerror({ error: 'not-allowed' });
+
+    const countAfterFallback = instances.length;
+    expect(countAfterFallback).toBeGreaterThanOrEqual(3);
+
+    // 旧インスタンス1のonendが発火してもゴーストが生成されないこと
+    instances[1].onend();
+    expect(instances.length).toBe(countAfterFallback);
+  });
+
   it('stop() で全インスタンスが停止する', async () => {
     await provider.start();
     const instances = global.MockSpeechRecognition._instances;
