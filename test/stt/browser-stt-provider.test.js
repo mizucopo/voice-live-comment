@@ -94,6 +94,84 @@ describe('BrowserSttProvider', () => {
     expect(onError).toHaveBeenCalled();
   });
 
+  it('旧インスタンスのonresultで結果が通知されない（鮮度ガード）', async () => {
+    const onResult = vi.fn();
+    provider.onResult(onResult);
+    await provider.start();
+
+    const instances = global.MockSpeechRecognition._instances;
+    const oldRec = instances[0];
+
+    // インスタンス0を startInstance(0) で差し替え
+    // startInstance内で recognitions[0] が新しいrecに置き換わる
+    provider.recognitions[0] = null;
+    provider.startInstance(0);
+    const newRec = instances[instances.length - 1];
+    expect(newRec).not.toBe(oldRec);
+
+    // 旧インスタンスのonresultが発火しても結果は通知されない
+    oldRec.onresult({
+      resultIndex: 0,
+      results: [{ isFinal: true, 0: { transcript: 'ゴミデータ' } }]
+    });
+    expect(onResult).not.toHaveBeenCalled();
+
+    // 新インスタンスのonresultは正常に通知される
+    newRec.onresult({
+      resultIndex: 0,
+      results: [{ isFinal: true, 0: { transcript: '正常データ' } }]
+    });
+    expect(onResult).toHaveBeenCalledWith('正常データ');
+  });
+
+  it('fallbackToCloud() 後に旧インスタンスのonendでゴーストが生成されない', async () => {
+    settings.useLocalModel = true;
+    provider = new BrowserSttProvider(settings);
+    const onError = vi.fn();
+    provider.onError(onError);
+    await provider.start();
+
+    const instances = global.MockSpeechRecognition._instances;
+
+    // インスタンス0開始
+    instances[0].onstart();
+
+    // インスタンス0で最終結果 → preStartNextInstance → インスタンス1開始
+    instances[0].onresult({
+      resultIndex: 0,
+      results: [{ isFinal: true, 0: { transcript: 'テスト' } }]
+    });
+    expect(instances.length).toBe(2);
+
+    // インスタンス0終了 → activeIndex = 1 に切り替え
+    instances[0].onend();
+
+    // インスタンス1でエラー発生 → フォールバック (index=1から)
+    instances[1].onerror({ error: 'not-allowed' });
+
+    const countAfterFallback = instances.length;
+    expect(countAfterFallback).toBeGreaterThanOrEqual(3);
+
+    // 旧インスタンス1のonendが発火してもゴーストが生成されないこと
+    instances[1].onend();
+    expect(instances.length).toBe(countAfterFallback);
+  });
+
+  it('fallbackToCloud のエラーメッセージに理由が含まれる', async () => {
+    settings.useLocalModel = true;
+    provider = new BrowserSttProvider(settings);
+    const onError = vi.fn();
+    provider.onError(onError);
+    await provider.start();
+
+    const instances = global.MockSpeechRecognition._instances;
+    instances[0].onerror({ error: 'not-allowed' });
+
+    expect(onError).toHaveBeenCalled();
+    const errorMessage = onError.mock.calls[0][0].message;
+    expect(errorMessage).toContain('not-allowed');
+  });
+
   it('stop() で全インスタンスが停止する', async () => {
     await provider.start();
     const instances = global.MockSpeechRecognition._instances;
