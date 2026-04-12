@@ -38,6 +38,7 @@ export function parseDictionaryRules(text) {
  * @returns {string} 置換後のテキスト
  */
 export function applyDictionary(text, rules) {
+  if (!rules) return text;
   for (const rule of rules) {
     text = text.replaceAll(rule.from, rule.to);
   }

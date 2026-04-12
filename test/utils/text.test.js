@@ -104,4 +104,12 @@ describe('applyDictionary', () => {
     const rules = [{ from: 'aa', to: 'bb' }];
     expect(applyDictionary('aaとaa', rules)).toBe('bbとbb');
   });
+
+  it('rulesがnullの場合は元のテキストを返す', () => {
+    expect(applyDictionary('こんにちは', null)).toBe('こんにちは');
+  });
+
+  it('rulesがundefinedの場合は元のテキストを返す', () => {
+    expect(applyDictionary('こんにちは', undefined)).toBe('こんにちは');
+  });
 });
