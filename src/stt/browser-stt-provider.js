@@ -111,6 +111,7 @@ export class BrowserSttProvider extends SttProvider {
 
     rec.onend = () => {
       if (!this.isActive) return;
+      if (this.recognitions[index] !== rec) return;
 
       this.recognitions[index] = null;
 
