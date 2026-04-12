@@ -192,6 +192,7 @@ async function startRecognition() {
     provider = createProvider();
   } catch (error) {
     sendError(error.message);
+    isStarting = false;
     return;
   }
 
@@ -199,6 +200,7 @@ async function startRecognition() {
 
   provider.onStart(() => {
     isActive = true;
+    isStarting = false;
     chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: true });
     console.log('[Voice Live Comment] 音声認識を開始しました');
   });
@@ -218,6 +220,7 @@ async function startRecognition() {
     } catch (error) {
       sendError('VADの初期化に失敗しました: ' + error.message);
       currentProvider = null;
+      isStarting = false;
       return;
     }
   }
@@ -236,6 +239,7 @@ async function startRecognition() {
       vad = null;
     }
     currentProvider = null;
+    isStarting = false;
   }
 }
 
@@ -279,9 +283,7 @@ if (hasChat) {
         return true;
       } else {
         isStarting = true;
-        startRecognition().finally(() => {
-          isStarting = false;
-        });
+        startRecognition();
       }
       sendResponse({ isActive });
     } else if (message.type === 'SETTINGS_UPDATED') {
@@ -290,9 +292,7 @@ if (hasChat) {
           await stopRecognition();
           // 並行するトグル操作からの二重起動を防止するため isStarting ガードを使用
           isStarting = true;
-          startRecognition().finally(() => {
-            isStarting = false;
-          });
+          startRecognition();
         }
       });
     }
