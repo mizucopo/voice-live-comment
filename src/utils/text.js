@@ -26,7 +26,7 @@ export function parseDictionaryRules(text) {
     .map(line => {
       const idx = line.indexOf('→');
       if (idx <= 0) return null;
-      return { from: line.slice(0, idx), to: line.slice(idx + 1) };
+      return { from: line.slice(0, idx).trim(), to: line.slice(idx + 1).trim() };
     })
     .filter(Boolean);
 }
