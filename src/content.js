@@ -211,6 +211,9 @@ async function startRecognition() {
 
   provider.onError((error) => {
     sendError(error.message);
+    if (isStarting) {
+      isStarting = false;
+    }
   });
 
   // 外部API使用時はAudioCapture + VADパイプラインを初期化
@@ -283,7 +286,11 @@ if (hasChat) {
         return true;
       } else {
         isStarting = true;
-        startRecognition();
+        startRecognition().catch((error) => {
+          console.error('[Voice Live Comment] startRecognition failed:', error);
+          sendError('音声認識の開始に失敗しました: ' + error.message);
+          isStarting = false;
+        });
       }
       sendResponse({ isActive });
     } else if (message.type === 'SETTINGS_UPDATED') {
@@ -292,7 +299,11 @@ if (hasChat) {
           await stopRecognition();
           // 並行するトグル操作からの二重起動を防止するため isStarting ガードを使用
           isStarting = true;
-          startRecognition();
+          startRecognition().catch((error) => {
+            console.error('[Voice Live Comment] startRecognition failed:', error);
+            sendError('音声認識の開始に失敗しました: ' + error.message);
+            isStarting = false;
+          });
         }
       });
     }

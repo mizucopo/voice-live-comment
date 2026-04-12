@@ -296,6 +296,39 @@ describe('content.js', () => {
       expect(global.webkitSpeechRecognition).toHaveBeenCalledTimes(1);
     });
 
+    it('provider onStart未発火時にonErrorでisStartingがリセットされる', async () => {
+      vi.resetModules();
+      chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'browser',
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: false,
+        boostPhrases: [],
+        dictionary: '',
+        googleApiKey: ''
+      });
+      await import('../src/content.js');
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+
+      // 1) 開始
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, vi.fn());
+      await new Promise(r => setTimeout(r, 50));
+
+      // SpeechRecognition インスタンスの onerror を発火（onstart は発火させない）
+      const srInstance = global.MockSpeechRecognition._instances.at(-1);
+      expect(srInstance).toBeDefined();
+      srInstance.onerror({ error: 'audio-capture' });
+      await new Promise(r => setTimeout(r, 10));
+
+      // 2) onError で isStarting がリセットされていれば、再度トグルで開始できる
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, vi.fn());
+      await new Promise(r => setTimeout(r, 50));
+
+      // SpeechRecognition コンストラクタが2回呼ばれる（初回 + リトライ）
+      expect(global.webkitSpeechRecognition).toHaveBeenCalledTimes(2);
+    });
+
     it('未実装プロバイダー選択時にエラー通知', async () => {
       vi.resetModules();
       chrome.storage.sync.get.mockResolvedValue({
