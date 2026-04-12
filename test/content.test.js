@@ -198,6 +198,73 @@ describe('content.js', () => {
       expect(errorCalls).toHaveLength(0);
     });
 
+    it('外部プロバイダー start() 失敗時に audioCapture/vad がクリーンアップされる', async () => {
+      // GoogleSttProvider の start() が例外を投げるようにモック
+      vi.doMock('../src/stt/google-stt-provider.js', () => {
+        return {
+          GoogleSttProvider: class {
+            constructor() { this._startCallbacks = []; this._resultCallbacks = []; this._errorCallbacks = []; }
+            onStart(cb) { this._startCallbacks.push(cb); }
+            onResult(cb) { this._resultCallbacks.push(cb); }
+            onError(cb) { this._errorCallbacks.push(cb); }
+            async start() { throw new Error('接続テスト失敗'); }
+            async stop() {}
+          }
+        };
+      });
+
+      vi.resetModules();
+      chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'google',
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: false,
+        boostPhrases: [],
+        dictionary: '',
+        googleApiKey: 'test-key'
+      });
+      await import('../src/content.js');
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, vi.fn());
+
+      await new Promise(r => setTimeout(r, 100));
+
+      // エラーが通知されることを確認
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'SHOW_ERROR', message: expect.stringContaining('接続テスト失敗') })
+      );
+
+      // getUserMedia が呼ばれた（AudioCapture が初期化された）ことを確認
+      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalled();
+
+      // 再度 start できることを確認（audioCapture/vad がクリーンアップされていればリソース競合しない）
+      vi.doUnmock('../src/stt/google-stt-provider.js');
+      vi.resetModules();
+
+      chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'browser',
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: false,
+        boostPhrases: [],
+        dictionary: '',
+        googleApiKey: ''
+      });
+      await import('../src/content.js');
+
+      const listener2 = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+      listener2({ type: 'TOGGLE_RECOGNITION' }, {}, vi.fn());
+      await new Promise(r => setTimeout(r, 50));
+
+      // 追加のエラーが発生していないことを確認
+      const errorCalls = chrome.runtime.sendMessage.mock.calls.filter(
+        call => call[0] && call[0].type === 'SHOW_ERROR'
+      );
+      // 初回の '接続テスト失敗' エラーのみ（1件）であることを確認
+      expect(errorCalls).toHaveLength(1);
+    });
+
     it('未実装プロバイダー選択時にエラー通知', async () => {
       vi.resetModules();
       chrome.storage.sync.get.mockResolvedValue({

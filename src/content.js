@@ -226,6 +226,15 @@ async function startRecognition() {
     await provider.start();
   } catch (error) {
     sendError(error.message);
+    // 外部API使用時に setupExternalPipeline で初期化済みのリソースを解放する
+    if (audioCapture) {
+      try { await audioCapture.stop(); } catch (e) {}
+      audioCapture = null;
+    }
+    if (vad) {
+      vad.destroy();
+      vad = null;
+    }
     currentProvider = null;
   }
 }
