@@ -234,19 +234,25 @@ async function startRecognition() {
 async function stopRecognition() {
   isActive = false;
 
-  if (audioCapture) {
-    try { await audioCapture.stop(); } catch (e) {}
-    audioCapture = null;
+  // await より前にモジュール変数を null に設定し、ローカルで参照を保持する。
+  // これにより並行する startRecognition() が古い参照を見ることを防ぎ、
+  // stop 側の await 後の null 代入で新しい参照を上書きすることも防ぐ。
+  const captureToStop = audioCapture;
+  audioCapture = null;
+  if (captureToStop) {
+    try { await captureToStop.stop(); } catch (e) {}
   }
 
-  if (vad) {
-    vad.destroy();
-    vad = null;
+  const vadToDestroy = vad;
+  vad = null;
+  if (vadToDestroy) {
+    vadToDestroy.destroy();
   }
 
-  if (currentProvider) {
-    try { await currentProvider.stop(); } catch (e) {}
-    currentProvider = null;
+  const providerToStop = currentProvider;
+  currentProvider = null;
+  if (providerToStop) {
+    try { await providerToStop.stop(); } catch (e) {}
   }
 
   chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: false });
