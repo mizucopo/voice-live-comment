@@ -279,7 +279,11 @@ if (hasChat) {
       loadSettings().then(async () => {
         if (isActive) {
           await stopRecognition();
-          startRecognition();
+          // 並行するトグル操作からの二重起動を防止するため isStarting ガードを使用
+          isStarting = true;
+          startRecognition().finally(() => {
+            isStarting = false;
+          });
         }
       });
     }
