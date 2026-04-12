@@ -265,6 +265,70 @@ describe('content.js', () => {
       expect(errorCalls).toHaveLength(1);
     });
 
+    it('isStarting→isActiveギャップ中のトグルで二重起動しない', async () => {
+      vi.resetModules();
+      chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'browser',
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: false,
+        boostPhrases: [],
+        dictionary: '',
+        googleApiKey: ''
+      });
+      await import('../src/content.js');
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+
+      // 1) 開始 — startRecognition が完了するまで待つが、onstart は発火させない
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, vi.fn());
+      await new Promise(r => setTimeout(r, 50));
+
+      // この時点で startRecognition() は完了しているが isActive はまだ false
+      // 旧コードでは isStarting も false に戻っている（finally のため）
+      // もう一度トグル → 旧コードなら二つ目の startRecognition が走る
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, vi.fn());
+      await new Promise(r => setTimeout(r, 50));
+
+      // SpeechRecognition コンストラクタの呼び出し回数を確認
+      // バグあり: 2 回以上（二重起動）
+      // 修正済: 1 回（ギャップ中も isStarting ガードが有効）
+      expect(global.webkitSpeechRecognition).toHaveBeenCalledTimes(1);
+    });
+
+    it('provider onStart未発火時にonErrorでisStartingがリセットされる', async () => {
+      vi.resetModules();
+      chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'browser',
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: false,
+        boostPhrases: [],
+        dictionary: '',
+        googleApiKey: ''
+      });
+      await import('../src/content.js');
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+
+      // 1) 開始
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, vi.fn());
+      await new Promise(r => setTimeout(r, 50));
+
+      // SpeechRecognition インスタンスの onerror を発火（onstart は発火させない）
+      const srInstance = global.MockSpeechRecognition._instances.at(-1);
+      expect(srInstance).toBeDefined();
+      srInstance.onerror({ error: 'audio-capture' });
+      await new Promise(r => setTimeout(r, 10));
+
+      // 2) onError で isStarting がリセットされていれば、再度トグルで開始できる
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, vi.fn());
+      await new Promise(r => setTimeout(r, 50));
+
+      // SpeechRecognition コンストラクタが2回呼ばれる（初回 + リトライ）
+      expect(global.webkitSpeechRecognition).toHaveBeenCalledTimes(2);
+    });
+
     it('未実装プロバイダー選択時にエラー通知', async () => {
       vi.resetModules();
       chrome.storage.sync.get.mockResolvedValue({
