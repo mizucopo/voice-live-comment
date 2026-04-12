@@ -25,48 +25,61 @@ export class AudioCapture {
   async start() {
     this._stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    this._audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const source = this._audioContext.createMediaStreamSource(this._stream);
-    this._scriptProcessor = this._audioContext.createScriptProcessor(4096, 1, 1);
+    try {
+      this._audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = this._audioContext.createMediaStreamSource(this._stream);
+      this._scriptProcessor = this._audioContext.createScriptProcessor(4096, 1, 1);
 
-    this._scriptProcessor.onaudioprocess = (e) => {
-      const pcmData = e.inputBuffer.getChannelData(0);
-      const resampled = AudioCapture.resampleTo16k(pcmData, this._audioContext.sampleRate);
-      for (const cb of this._pcmCallbacks) {
-        cb(resampled);
-      }
-    };
-
-    source.connect(this._scriptProcessor);
-    // ScriptProcessorはdestinationに接続しないとonaudioprocessが発火しないため、
-    // GainNode(無音)を経由してフィードバックループを防止する
-    const silentGain = this._audioContext.createGain();
-    silentGain.gain.value = 0;
-    this._scriptProcessor.connect(silentGain);
-    silentGain.connect(this._audioContext.destination);
-
-    this._mediaRecorder = new MediaRecorder(this._stream, {
-      mimeType: 'audio/webm;codecs=opus'
-    });
-
-    this._allChunks = [];
-    this._recordingChunks = [];
-    this._isRecording = false;
-
-    this._mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) {
-        this._allChunks.push(e.data);
-        // 最初のチャンク(WEBMヘッダー) + 直近19チャンク(約5秒分)に制限
-        if (this._allChunks.length > 20) {
-          this._allChunks = [this._allChunks[0], ...this._allChunks.slice(-19)];
+      this._scriptProcessor.onaudioprocess = (e) => {
+        const pcmData = e.inputBuffer.getChannelData(0);
+        const resampled = AudioCapture.resampleTo16k(pcmData, this._audioContext.sampleRate);
+        for (const cb of this._pcmCallbacks) {
+          cb(resampled);
         }
-        if (this._isRecording) {
-          this._recordingChunks.push(e.data);
-        }
-      }
-    };
+      };
 
-    this._mediaRecorder.start(250);
+      source.connect(this._scriptProcessor);
+      // ScriptProcessorはdestinationに接続しないとonaudioprocessが発火しないため、
+      // GainNode(無音)を経由してフィードバックループを防止する
+      const silentGain = this._audioContext.createGain();
+      silentGain.gain.value = 0;
+      this._scriptProcessor.connect(silentGain);
+      silentGain.connect(this._audioContext.destination);
+
+      this._mediaRecorder = new MediaRecorder(this._stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
+
+      this._allChunks = [];
+      this._recordingChunks = [];
+      this._isRecording = false;
+
+      this._mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          this._allChunks.push(e.data);
+          // 最初のチャンク(WEBMヘッダー) + 直近19チャンク(約5秒分)に制限
+          if (this._allChunks.length > 20) {
+            this._allChunks = [this._allChunks[0], ...this._allChunks.slice(-19)];
+          }
+          if (this._isRecording) {
+            this._recordingChunks.push(e.data);
+          }
+        }
+      };
+
+      this._mediaRecorder.start(250);
+    } catch (e) {
+      // 部分初期化済みリソースの解放
+      if (this._scriptProcessor) {
+        try { this._scriptProcessor.disconnect(); } catch (_) {}
+      }
+      if (this._audioContext && this._audioContext.state !== 'closed') {
+        try { await this._audioContext.close(); } catch (_) {}
+      }
+      this._stream.getTracks().forEach(t => t.stop());
+      this._stream = null;
+      throw e;
+    }
   }
 
   startRecording() {
@@ -101,7 +114,11 @@ export class AudioCapture {
       this._scriptProcessor.disconnect();
     }
     if (this._audioContext && this._audioContext.state !== 'closed') {
-      await this._audioContext.close();
+      try {
+        await this._audioContext.close();
+      } catch (_) {
+        // close() が失敗してもストリーム解放は継続
+      }
     }
     if (this._stream) {
       this._stream.getTracks().forEach(t => t.stop());
