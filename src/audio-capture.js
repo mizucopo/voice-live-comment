@@ -70,13 +70,15 @@ export class AudioCapture {
       this._mediaRecorder.start(250);
     } catch (e) {
       // 部分初期化済みリソースの解放
-      if (this._scriptProcessor) {
-        try { this._scriptProcessor.disconnect(); } catch (_) {}
-      }
-      if (this._audioContext && this._audioContext.state !== 'closed') {
-        try { await this._audioContext.close(); } catch (_) {}
-      }
-      this._stream.getTracks().forEach(t => t.stop());
+      try {
+        if (this._scriptProcessor) {
+          try { this._scriptProcessor.disconnect(); } catch (_) {}
+        }
+        if (this._audioContext && this._audioContext.state !== 'closed') {
+          try { await this._audioContext.close(); } catch (_) {}
+        }
+        this._stream.getTracks().forEach(t => t.stop());
+      } catch (_) {}
       this._stream = null;
       throw e;
     }
