@@ -38,9 +38,10 @@ describe('background.js', () => {
   describe('showNotification', () => {
     it('通知を作成する', () => {
       showNotification('テストタイトル', 'テストメッセージ');
+      expect(chrome.runtime.getURL).toHaveBeenCalledWith('icons/icon128.png');
       expect(chrome.notifications.create).toHaveBeenCalledWith({
         type: 'basic',
-        iconUrl: 'icons/icon128.png',
+        iconUrl: 'chrome-extension://test-id/icons/icon128.png',
         title: 'テストタイトル',
         message: 'テストメッセージ'
       });

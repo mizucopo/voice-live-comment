@@ -54,7 +54,7 @@ export function setBadgeError() {
 export function showNotification(title, message) {
   chrome.notifications.create({
     type: 'basic',
-    iconUrl: 'icons/icon128.png',
+    iconUrl: chrome.runtime.getURL('icons/icon128.png'),
     title: title,
     message: message
   }).catch(err => {

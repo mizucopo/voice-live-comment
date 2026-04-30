@@ -35,7 +35,8 @@ const mockRuntime = {
   onMessage: {
     addListener: vi.fn(),
     removeListener: vi.fn()
-  }
+  },
+  getURL: vi.fn().mockImplementation((path) => `chrome-extension://test-id/${path}`)
 };
 
 global.chrome = {
