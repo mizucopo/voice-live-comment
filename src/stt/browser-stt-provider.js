@@ -99,6 +99,7 @@ export class BrowserSttProvider extends SttProvider {
 
     rec.onerror = (event) => {
       if (this.recognitions[index] !== rec) return;
+      if (event.error === 'no-speech') return;
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed' || event.error === 'language-not-supported') {
         if (this.settings.useLocalModel) {
           this.fallbackToCloud(index, event.error);

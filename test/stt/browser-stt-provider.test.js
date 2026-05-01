@@ -286,6 +286,21 @@ describe('BrowserSttProvider', () => {
     expect(onError).toHaveBeenCalledTimes(1);
   });
 
+  it('no-speech エラーは通知されず認識が再起動する', async () => {
+    const onError = vi.fn();
+    provider.onError(onError);
+    await provider.start();
+
+    const instances = global.MockSpeechRecognition._instances;
+    instances[0].onstart();
+
+    instances[0].onerror({ error: 'no-speech' });
+    expect(onError).not.toHaveBeenCalled();
+
+    instances[0].onend();
+    expect(instances.length).toBe(2);
+  });
+
   it('stop() で全インスタンスが停止する', async () => {
     await provider.start();
     const instances = global.MockSpeechRecognition._instances;
