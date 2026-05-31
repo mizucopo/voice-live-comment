@@ -47,8 +47,9 @@ export class BrowserSttProvider extends SttProvider {
 
     for (let i = 0; i < 2; i++) {
       if (this.recognitions[i]) {
-        try { this.recognitions[i].stop(); } catch (e) {}
+        const rec = this.recognitions[i];
         this.recognitions[i] = null;
+        try { rec.stop(); } catch (e) {}
       }
     }
 
@@ -97,6 +98,8 @@ export class BrowserSttProvider extends SttProvider {
     };
 
     rec.onerror = (event) => {
+      if (this.recognitions[index] !== rec) return;
+      if (event.error === 'no-speech') return;
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed' || event.error === 'language-not-supported') {
         if (this.settings.useLocalModel) {
           this.fallbackToCloud(index, event.error);
@@ -133,8 +136,9 @@ export class BrowserSttProvider extends SttProvider {
 
   startInstance(index) {
     if (this.recognitions[index]) {
-      try { this.recognitions[index].stop(); } catch (e) {}
+      const rec = this.recognitions[index];
       this.recognitions[index] = null;
+      try { rec.stop(); } catch (e) {}
     }
     const rec = this.setupRecognitionInstance(index);
     try {
@@ -169,8 +173,9 @@ export class BrowserSttProvider extends SttProvider {
 
     for (let i = 0; i < 2; i++) {
       if (this.recognitions[i]) {
-        try { this.recognitions[i].stop(); } catch (e) {}
+        const rec = this.recognitions[i];
         this.recognitions[i] = null;
+        try { rec.stop(); } catch (e) {}
       }
     }
 

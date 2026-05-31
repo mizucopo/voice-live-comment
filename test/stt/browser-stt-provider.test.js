@@ -172,6 +172,135 @@ describe('BrowserSttProvider', () => {
     expect(errorMessage).toContain('not-allowed');
   });
 
+  it('stop() 後の aborted エラーは通知されない', async () => {
+    const onError = vi.fn();
+    provider.onError(onError);
+    await provider.start();
+
+    const instances = global.MockSpeechRecognition._instances;
+    instances[0].onstart();
+
+    await provider.stop();
+    instances[0].onerror({ error: 'aborted' });
+
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('startInstance による差し替え後の旧インスタンスの aborted は通知されない', async () => {
+    const onError = vi.fn();
+    provider.onError(onError);
+    await provider.start();
+
+    const instances = global.MockSpeechRecognition._instances;
+    instances[0].onstart();
+    const oldRec = instances[0];
+
+    provider.startInstance(0);
+
+    oldRec.onerror({ error: 'aborted' });
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('fallbackToCloud 後の旧インスタンスの aborted は通知されない', async () => {
+    settings.useLocalModel = true;
+    provider = new BrowserSttProvider(settings);
+    const onError = vi.fn();
+    provider.onError(onError);
+    await provider.start();
+
+    const instances = global.MockSpeechRecognition._instances;
+    instances[0].onstart();
+
+    // preStartNextInstance → instances[1] 作成
+    instances[0].onresult({
+      resultIndex: 0,
+      results: [{ isFinal: true, 0: { transcript: 'テスト' } }]
+    });
+    expect(instances.length).toBe(2);
+
+    // instances[0] 終了 → activeIndex = 1
+    instances[0].onend();
+
+    // instances[1] でエラー → fallbackToCloud
+    instances[1].onerror({ error: 'not-allowed' });
+    expect(onError).toHaveBeenCalledTimes(1);
+
+    // fallbackToCloud で stop() された旧インスタンスの aborted
+    instances[1].onerror({ error: 'aborted' });
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it('stop() 中に同期的に発火する aborted エラーは通知されない', async () => {
+    const onError = vi.fn();
+    provider.onError(onError);
+    await provider.start();
+
+    const instances = global.MockSpeechRecognition._instances;
+    instances[0].onstart();
+    const rec = instances[0];
+    rec.stop = () => { rec.onerror({ error: 'aborted' }); };
+
+    await provider.stop();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('startInstance() 中に同期的に発火する aborted エラーは通知されない', async () => {
+    const onError = vi.fn();
+    provider.onError(onError);
+    await provider.start();
+
+    const instances = global.MockSpeechRecognition._instances;
+    instances[0].onstart();
+    const oldRec = instances[0];
+    oldRec.stop = () => { oldRec.onerror({ error: 'aborted' }); };
+
+    provider.startInstance(0);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('fallbackToCloud() 中に同期的に発火する aborted エラーは通知されない', async () => {
+    settings.useLocalModel = true;
+    provider = new BrowserSttProvider(settings);
+    const onError = vi.fn();
+    provider.onError(onError);
+    await provider.start();
+
+    const instances = global.MockSpeechRecognition._instances;
+    instances[0].onstart();
+
+    // preStartNextInstance → instances[1] 作成
+    instances[0].onresult({
+      resultIndex: 0,
+      results: [{ isFinal: true, 0: { transcript: 'テスト' } }]
+    });
+    expect(instances.length).toBe(2);
+
+    // instances[0] 終了 → activeIndex = 1
+    instances[0].onend();
+
+    // instances[1].stop を同期 onerror 発火に上書き
+    instances[1].stop = () => { instances[1].onerror({ error: 'aborted' }); };
+
+    // instances[1] でエラー → fallbackToCloud（内部で stop() が同期 onerror を発火）
+    instances[1].onerror({ error: 'not-allowed' });
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it('no-speech エラーは通知されず認識が再起動する', async () => {
+    const onError = vi.fn();
+    provider.onError(onError);
+    await provider.start();
+
+    const instances = global.MockSpeechRecognition._instances;
+    instances[0].onstart();
+
+    instances[0].onerror({ error: 'no-speech' });
+    expect(onError).not.toHaveBeenCalled();
+
+    instances[0].onend();
+    expect(instances.length).toBe(2);
+  });
+
   it('stop() で全インスタンスが停止する', async () => {
     await provider.start();
     const instances = global.MockSpeechRecognition._instances;
