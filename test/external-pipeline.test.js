@@ -16,9 +16,7 @@ describe('createExternalPipeline', () => {
     let vad;
 
     class FakeAudioCapture {
-      onPcmData(callback) {
-        this.onPcmDataCallback = callback;
-      }
+      onPcmData(_callback) {}
 
       startRecording() {}
 
@@ -41,9 +39,7 @@ describe('createExternalPipeline', () => {
 
       async init() {}
 
-      onSpeechStart(callback) {
-        this.onSpeechStartCallback = callback;
-      }
+      onSpeechStart(_callback) {}
 
       onSpeechEnd(callback) {
         this.onSpeechEndCallback = callback;

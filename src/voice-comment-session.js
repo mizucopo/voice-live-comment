@@ -66,16 +66,10 @@ export class VoiceCommentSession {
     this._isActive = false;
     this._finishStarting();
 
-    const providerToStop = this._currentProvider;
-    this._currentProvider = null;
-    const pipelineToStop = this._externalPipeline;
-    this._externalPipeline = null;
+    const { provider, pipeline } = this._takeCurrentResources();
 
-    await this._stopExternalPipeline(pipelineToStop);
-
-    if (providerToStop) {
-      try { await providerToStop.stop(); } catch (_) {}
-    }
+    await this._stopExternalPipeline(pipeline);
+    await this._stopProvider(provider);
 
     this._notifyActive(false);
     this._logger.log('[Voice Live Comment] 音声認識を停止しました');
@@ -136,9 +130,9 @@ export class VoiceCommentSession {
   }
 
   async _cleanupFailedStart() {
-    await this._stopExternalPipeline(this._externalPipeline);
-    this._externalPipeline = null;
-    this._currentProvider = null;
+    const { pipeline } = this._takeCurrentResources();
+
+    await this._stopExternalPipeline(pipeline);
     this._isActive = false;
     this._finishStarting();
   }
@@ -146,18 +140,27 @@ export class VoiceCommentSession {
   async _handleStartTimeout() {
     this._logger.warn('[Voice Live Comment] 音声認識の開始がタイムアウトしました');
 
-    const providerToStop = this._currentProvider;
-    this._currentProvider = null;
-    const pipelineToStop = this._externalPipeline;
-    this._externalPipeline = null;
+    const { provider, pipeline } = this._takeCurrentResources();
 
-    await this._stopExternalPipeline(pipelineToStop);
-    if (providerToStop) {
-      try { await providerToStop.stop(); } catch (_) {}
-    }
+    await this._stopExternalPipeline(pipeline);
+    await this._stopProvider(provider);
 
     this._finishStarting();
     this._notifyError('音声認識の開始がタイムアウトしました。再度お試しください。');
+  }
+
+  _takeCurrentResources() {
+    const provider = this._currentProvider;
+    const pipeline = this._externalPipeline;
+    this._currentProvider = null;
+    this._externalPipeline = null;
+    return { provider, pipeline };
+  }
+
+  async _stopProvider(providerToStop) {
+    if (providerToStop) {
+      try { await providerToStop.stop(); } catch (_) {}
+    }
   }
 
   async _stopExternalPipeline(pipelineToStop) {

@@ -30,7 +30,6 @@ class FakeProvider {
   emitResult(text) {
     for (const callback of this._resultCallbacks) callback(text);
   }
-
 }
 
 async function flushAsyncWork() {
