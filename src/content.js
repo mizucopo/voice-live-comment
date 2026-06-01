@@ -1,8 +1,7 @@
 import { trimText, parseDictionaryRules, applyDictionary } from './utils/text.js';
 import { BrowserSttProvider } from './stt/browser-stt-provider.js';
 import { GoogleSttProvider } from './stt/google-stt-provider.js';
-import { AudioCapture } from './audio-capture.js';
-import { Vad } from './vad.js';
+import { createExternalPipeline } from './external-pipeline.js';
 import { VoiceCommentSession } from './voice-comment-session.js';
 
 const SUPPORTED_STT_PROVIDERS = new Set(['browser', 'google']);
@@ -157,38 +156,6 @@ function createProvider(providerSettings = settings) {
         boostPhrases: providerSettings.boostPhrases
       });
   }
-}
-
-// 外部API用のAudioCapture + VADパイプラインを作成
-async function createExternalPipeline(provider) {
-  const audioCapture = new AudioCapture();
-  const vad = new Vad();
-
-  try {
-    await vad.init();
-
-    audioCapture.onPcmData((frame) => vad.processFrame(frame));
-    vad.onSpeechStart(() => audioCapture.startRecording());
-    vad.onSpeechEnd(() => {
-      const blob = audioCapture.stopRecording();
-      if (blob.size > 0) {
-        provider.sendAudio(blob);
-      }
-    });
-
-    await audioCapture.start();
-  } catch (error) {
-    vad.destroy();
-    try { await audioCapture.stop(); } catch (_) {}
-    throw error;
-  }
-
-  return {
-    async stop() {
-      try { await audioCapture.stop(); } catch (_) {}
-      vad.destroy();
-    }
-  };
 }
 
 const session = new VoiceCommentSession({

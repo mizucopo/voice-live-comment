@@ -42,9 +42,7 @@ export class VoiceCommentSession {
     this._isStarting = true;
     this._startTimeoutId = setTimeout(() => {
       if (this._isStarting && !this._isActive) {
-        this._logger.warn('[Voice Live Comment] 音声認識の開始がタイムアウトしました');
-        this._finishStarting();
-        this._notifyError('音声認識の開始がタイムアウトしました。再度お試しください。');
+        this._handleStartTimeout();
       }
     }, this._startTimeoutMs);
 
@@ -68,10 +66,13 @@ export class VoiceCommentSession {
     this._isActive = false;
     this._finishStarting();
 
-    await this._stopExternalPipeline();
-
     const providerToStop = this._currentProvider;
     this._currentProvider = null;
+    const pipelineToStop = this._externalPipeline;
+    this._externalPipeline = null;
+
+    await this._stopExternalPipeline(pipelineToStop);
+
     if (providerToStop) {
       try { await providerToStop.stop(); } catch (_) {}
     }
@@ -135,15 +136,31 @@ export class VoiceCommentSession {
   }
 
   async _cleanupFailedStart() {
-    await this._stopExternalPipeline();
+    await this._stopExternalPipeline(this._externalPipeline);
+    this._externalPipeline = null;
     this._currentProvider = null;
     this._isActive = false;
     this._finishStarting();
   }
 
-  async _stopExternalPipeline() {
+  async _handleStartTimeout() {
+    this._logger.warn('[Voice Live Comment] 音声認識の開始がタイムアウトしました');
+
+    const providerToStop = this._currentProvider;
+    this._currentProvider = null;
     const pipelineToStop = this._externalPipeline;
     this._externalPipeline = null;
+
+    await this._stopExternalPipeline(pipelineToStop);
+    if (providerToStop) {
+      try { await providerToStop.stop(); } catch (_) {}
+    }
+
+    this._finishStarting();
+    this._notifyError('音声認識の開始がタイムアウトしました。再度お試しください。');
+  }
+
+  async _stopExternalPipeline(pipelineToStop) {
     if (pipelineToStop) {
       try { await pipelineToStop.stop(); } catch (_) {}
     }

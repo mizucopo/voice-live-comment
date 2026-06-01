@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { VoiceCommentSession } from '../src/voice-comment-session.js';
 
 class FakeProvider {
@@ -37,6 +37,14 @@ async function flushAsyncWork() {
   await new Promise(resolve => setTimeout(resolve, 0));
 }
 
+function createDeferred() {
+  let resolve;
+  const promise = new Promise((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
+
 describe('VoiceCommentSession', () => {
   let provider;
   let dependencies;
@@ -53,6 +61,10 @@ describe('VoiceCommentSession', () => {
       notifyError: vi.fn(),
       startTimeoutMs: 10000
     };
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('provider onStart 前の toggle では二重起動しない', async () => {
@@ -102,5 +114,53 @@ describe('VoiceCommentSession', () => {
     provider.emitResult('こんにちは');
 
     expect(dependencies.postComment).toHaveBeenCalledWith('こんにちは');
+  });
+
+  it('開始タイムアウト時に保留中の provider を停止してから再試行を許可する', async () => {
+    vi.useFakeTimers();
+    dependencies.startTimeoutMs = 1000;
+    const session = new VoiceCommentSession(dependencies);
+
+    session.toggle();
+    await Promise.resolve();
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(provider.stop).toHaveBeenCalledTimes(1);
+    expect(dependencies.notifyError).toHaveBeenCalledWith(
+      '音声認識の開始がタイムアウトしました。再度お試しください。'
+    );
+
+    session.toggle();
+    await Promise.resolve();
+
+    expect(dependencies.createProvider).toHaveBeenCalledTimes(2);
+  });
+
+  it('stop 中に再開しても新しい provider を停止しない', async () => {
+    const firstProvider = new FakeProvider();
+    const secondProvider = new FakeProvider();
+    const stopPipeline = createDeferred();
+    const pipeline = { stop: vi.fn().mockReturnValue(stopPipeline.promise) };
+    dependencies.loadSettings.mockResolvedValue({ sttProvider: 'google' });
+    dependencies.createProvider
+      .mockReturnValueOnce(firstProvider)
+      .mockReturnValueOnce(secondProvider);
+    dependencies.createExternalPipeline.mockResolvedValue(pipeline);
+    const session = new VoiceCommentSession(dependencies);
+
+    session.toggle();
+    await flushAsyncWork();
+    firstProvider.emitStart();
+
+    const stopPromise = session.stop();
+    session.toggle();
+    await flushAsyncWork();
+
+    stopPipeline.resolve();
+    await stopPromise;
+
+    expect(firstProvider.stop).toHaveBeenCalledTimes(1);
+    expect(secondProvider.stop).not.toHaveBeenCalled();
   });
 });
