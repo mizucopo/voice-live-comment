@@ -329,7 +329,7 @@ describe('content.js', () => {
       expect(global.webkitSpeechRecognition).toHaveBeenCalledTimes(2);
     });
 
-    it('未実装プロバイダー選択時にエラー通知', async () => {
+    it('サポート外プロバイダー設定はブラウザProviderで開始する', async () => {
       vi.resetModules();
       chrome.storage.sync.get.mockResolvedValue({
         sttProvider: 'speechmatics',
@@ -347,9 +347,11 @@ describe('content.js', () => {
       listener({ type: 'TOGGLE_RECOGNITION' }, {}, vi.fn());
 
       await new Promise(resolve => setTimeout(resolve, 10));
-      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'SHOW_ERROR' })
+      expect(global.webkitSpeechRecognition).toHaveBeenCalled();
+      const errorCalls = chrome.runtime.sendMessage.mock.calls.filter(
+        call => call[0] && call[0].type === 'SHOW_ERROR'
       );
+      expect(errorCalls).toHaveLength(0);
     });
   });
 });

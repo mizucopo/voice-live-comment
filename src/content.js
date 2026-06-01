@@ -1,10 +1,14 @@
 import { trimText, parseDictionaryRules, applyDictionary } from './utils/text.js';
 import { BrowserSttProvider } from './stt/browser-stt-provider.js';
 import { GoogleSttProvider } from './stt/google-stt-provider.js';
-import { SpeechmaticsSttProvider } from './stt/speechmatics-stt-provider.js';
-import { DeepgramSttProvider } from './stt/deepgram-stt-provider.js';
 import { AudioCapture } from './audio-capture.js';
 import { Vad } from './vad.js';
+
+const SUPPORTED_STT_PROVIDERS = new Set(['browser', 'google']);
+
+function normalizeSttProvider(provider) {
+  return SUPPORTED_STT_PROVIDERS.has(provider) ? provider : 'browser';
+}
 
 let isActive = false;
 let isStarting = false;
@@ -62,7 +66,7 @@ async function loadSettings() {
     dictionary: '',
     googleApiKey: ''
   });
-  settings = result;
+  settings = { ...result, sttProvider: normalizeSttProvider(result.sttProvider) };
   parsedRules = parseDictionaryRules(settings.dictionary);
   return settings;
 }
@@ -149,10 +153,6 @@ function createProvider() {
   switch (settings.sttProvider) {
     case 'google':
       return new GoogleSttProvider(settings.googleApiKey, settings.language);
-    case 'speechmatics':
-      return new SpeechmaticsSttProvider();
-    case 'deepgram':
-      return new DeepgramSttProvider();
     case 'browser':
     default:
       return new BrowserSttProvider({
@@ -217,7 +217,7 @@ async function startRecognition() {
   });
 
   // 外部API使用時はAudioCapture + VADパイプラインを初期化
-  if (settings.sttProvider !== 'browser') {
+  if (settings.sttProvider === 'google') {
     try {
       await setupExternalPipeline(provider);
     } catch (error) {
