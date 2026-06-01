@@ -9,37 +9,40 @@ const DEFAULT_SETTINGS = {
   googleApiKey: ''
 };
 
+const SUPPORTED_STT_PROVIDERS = new Set(['browser', 'google']);
+
+function normalizeSttProvider(provider) {
+  return SUPPORTED_STT_PROVIDERS.has(provider) ? provider : DEFAULT_SETTINGS.sttProvider;
+}
+
 // Provider別の設定UI表示切り替え
 function updateProviderUI(provider) {
   const browserSettings = document.getElementById('browserSettings');
   const googleSettings = document.getElementById('googleSettings');
-  const unimplementedWarning = document.getElementById('unimplementedWarning');
 
   browserSettings.style.display = 'none';
   googleSettings.style.display = 'none';
-  unimplementedWarning.style.display = 'none';
 
   if (provider === 'browser') {
     browserSettings.style.display = '';
   } else if (provider === 'google') {
     googleSettings.style.display = '';
-  } else {
-    unimplementedWarning.style.display = '';
   }
 }
 
 // 設定を読み込んでフォームに反映
 export async function loadSettings() {
   const result = await chrome.storage.sync.get(DEFAULT_SETTINGS);
-  document.getElementById('sttProvider').value = result.sttProvider;
+  const sttProvider = normalizeSttProvider(result.sttProvider);
+  document.getElementById('sttProvider').value = sttProvider;
   document.getElementById('autoPost').checked = result.autoPost;
   document.getElementById('language').value = result.language;
   document.getElementById('useLocalModel').checked = result.useLocalModel;
   document.getElementById('boostPhrases').value = result.boostPhrases.join('\n');
   document.getElementById('dictionary').value = result.dictionary;
   document.getElementById('googleApiKey').value = result.googleApiKey;
-  updateProviderUI(result.sttProvider);
-  return result;
+  updateProviderUI(sttProvider);
+  return { ...result, sttProvider };
 }
 
 // 設定を保存

@@ -12,8 +12,6 @@ describe('options.js', () => {
       <select id="sttProvider">
         <option value="browser">ブラウザ音声認識</option>
         <option value="google">Google Cloud STT</option>
-        <option value="speechmatics">Speechmatics</option>
-        <option value="deepgram">Deepgram</option>
       </select>
       <input type="password" id="googleApiKey" />
       <div id="browserSettings">
@@ -24,7 +22,6 @@ describe('options.js', () => {
         <textarea id="dictionary"></textarea>
       </div>
       <div id="googleSettings" style="display:none"></div>
-      <div id="unimplementedWarning" class="warning" style="display:none"></div>
       <div id="status"></div>
       <button id="save">保存</button>
     `;
@@ -183,8 +180,6 @@ describe('options.js', () => {
         <select id="sttProvider">
           <option value="browser">ブラウザ音声認識</option>
           <option value="google">Google Cloud STT</option>
-          <option value="speechmatics">Speechmatics</option>
-          <option value="deepgram">Deepgram</option>
         </select>
         <input type="password" id="googleApiKey" />
         <div id="browserSettings">
@@ -193,7 +188,6 @@ describe('options.js', () => {
           <textarea id="dictionary"></textarea>
         </div>
         <div id="googleSettings" style="display:none"></div>
-        <div id="unimplementedWarning" class="warning" style="display:none"></div>
         <input type="checkbox" id="autoPost" />
         <input type="text" id="language" value="ja-JP" />
         <div id="status"></div>
@@ -258,7 +252,7 @@ describe('options.js', () => {
       expect(document.getElementById('googleSettings').style.display).not.toBe('none');
     });
 
-    it('未実装プロバイダー選択時に警告が表示される', async () => {
+    it('サポート外プロバイダー設定はブラウザ音声認識として読み込む', async () => {
       chrome.storage.sync.get.mockResolvedValue({
         sttProvider: 'speechmatics',
         autoPost: true,
@@ -271,7 +265,9 @@ describe('options.js', () => {
 
       await loadSettings();
 
-      expect(document.getElementById('unimplementedWarning').style.display).not.toBe('none');
+      expect(document.getElementById('sttProvider').value).toBe('browser');
+      expect(document.getElementById('browserSettings').style.display).not.toBe('none');
+      expect(document.getElementById('googleSettings').style.display).toBe('none');
     });
   });
 });
