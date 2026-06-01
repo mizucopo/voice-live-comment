@@ -43,7 +43,7 @@ export class VoiceCommentSession {
     this._startTimeoutId = setTimeout(() => {
       if (this._isStarting && !this._isActive) {
         this._logger.warn('[Voice Live Comment] 音声認識の開始がタイムアウトしました');
-        this._isStarting = false;
+        this._finishStarting();
         this._notifyError('音声認識の開始がタイムアウトしました。再度お試しください。');
       }
     }, this._startTimeoutMs);
@@ -51,8 +51,7 @@ export class VoiceCommentSession {
     this._start().catch((error) => {
       this._logger.error('[Voice Live Comment] startRecognition failed:', error);
       this._notifyError('音声認識の開始に失敗しました: ' + error.message);
-      this._isStarting = false;
-      this._clearStartTimeout();
+      this._finishStarting();
     });
 
     return this.snapshot();
@@ -67,14 +66,9 @@ export class VoiceCommentSession {
 
   async stop() {
     this._isActive = false;
-    this._isStarting = false;
-    this._clearStartTimeout();
+    this._finishStarting();
 
-    const pipelineToStop = this._externalPipeline;
-    this._externalPipeline = null;
-    if (pipelineToStop) {
-      try { await pipelineToStop.stop(); } catch (_) {}
-    }
+    await this._stopExternalPipeline();
 
     const providerToStop = this._currentProvider;
     this._currentProvider = null;
@@ -94,8 +88,7 @@ export class VoiceCommentSession {
       provider = this._createProvider(settings);
     } catch (error) {
       this._notifyError(error.message);
-      this._isStarting = false;
-      this._clearStartTimeout();
+      this._finishStarting();
       return;
     }
 
@@ -108,8 +101,7 @@ export class VoiceCommentSession {
       } catch (error) {
         this._notifyError('VADの初期化に失敗しました: ' + error.message);
         this._currentProvider = null;
-        this._isStarting = false;
-        this._clearStartTimeout();
+        this._finishStarting();
         return;
       }
     }
@@ -125,8 +117,7 @@ export class VoiceCommentSession {
   _bindProvider(provider) {
     provider.onStart(() => {
       this._isActive = true;
-      this._isStarting = false;
-      this._clearStartTimeout();
+      this._finishStarting();
       this._notifyActive(true);
       this._logger.log('[Voice Live Comment] 音声認識を開始しました');
     });
@@ -138,21 +129,27 @@ export class VoiceCommentSession {
     provider.onError((error) => {
       this._notifyError(error.message);
       if (this._isStarting) {
-        this._isStarting = false;
-        this._clearStartTimeout();
+        this._finishStarting();
       }
     });
   }
 
   async _cleanupFailedStart() {
+    await this._stopExternalPipeline();
+    this._currentProvider = null;
+    this._isActive = false;
+    this._finishStarting();
+  }
+
+  async _stopExternalPipeline() {
     const pipelineToStop = this._externalPipeline;
     this._externalPipeline = null;
     if (pipelineToStop) {
       try { await pipelineToStop.stop(); } catch (_) {}
     }
+  }
 
-    this._currentProvider = null;
-    this._isActive = false;
+  _finishStarting() {
     this._isStarting = false;
     this._clearStartTimeout();
   }

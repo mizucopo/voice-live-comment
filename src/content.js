@@ -145,16 +145,16 @@ function sendError(message) {
 }
 
 // プロバイダーを作成
-function createProvider() {
-  switch (settings.sttProvider) {
+function createProvider(providerSettings = settings) {
+  switch (providerSettings.sttProvider) {
     case 'google':
-      return new GoogleSttProvider(settings.googleApiKey, settings.language);
+      return new GoogleSttProvider(providerSettings.googleApiKey, providerSettings.language);
     case 'browser':
     default:
       return new BrowserSttProvider({
-        language: settings.language,
-        useLocalModel: settings.useLocalModel,
-        boostPhrases: settings.boostPhrases
+        language: providerSettings.language,
+        useLocalModel: providerSettings.useLocalModel,
+        boostPhrases: providerSettings.boostPhrases
       });
   }
 }
@@ -193,7 +193,7 @@ async function createExternalPipeline(provider) {
 
 const session = new VoiceCommentSession({
   loadSettings,
-  createProvider: () => createProvider(),
+  createProvider,
   createExternalPipeline,
   postComment: inputAndSubmit,
   notifyActive: (isActive) => chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive }),

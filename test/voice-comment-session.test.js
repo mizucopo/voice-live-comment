@@ -31,9 +31,6 @@ class FakeProvider {
     for (const callback of this._resultCallbacks) callback(text);
   }
 
-  emitError(error) {
-    for (const callback of this._errorCallbacks) callback(error);
-  }
 }
 
 async function flushAsyncWork() {
