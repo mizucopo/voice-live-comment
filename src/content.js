@@ -1,8 +1,8 @@
 import { trimText, parseDictionaryRules, applyDictionary } from './utils/text.js';
 import { BrowserSttProvider } from './stt/browser-stt-provider.js';
 import { GoogleSttProvider } from './stt/google-stt-provider.js';
-import { AudioCapture } from './audio-capture.js';
-import { Vad } from './vad.js';
+import { createExternalPipeline } from './external-pipeline.js';
+import { VoiceCommentSession } from './voice-comment-session.js';
 
 const SUPPORTED_STT_PROVIDERS = new Set(['browser', 'google']);
 
@@ -10,11 +10,6 @@ function normalizeSttProvider(provider) {
   return SUPPORTED_STT_PROVIDERS.has(provider) ? provider : 'browser';
 }
 
-let isActive = false;
-let isStarting = false;
-let currentProvider = null;
-let audioCapture = null;
-let vad = null;
 let settings = {
   sttProvider: 'browser',
   autoPost: true,
@@ -149,181 +144,36 @@ function sendError(message) {
 }
 
 // プロバイダーを作成
-function createProvider() {
-  switch (settings.sttProvider) {
+function createProvider(providerSettings = settings) {
+  switch (providerSettings.sttProvider) {
     case 'google':
-      return new GoogleSttProvider(settings.googleApiKey, settings.language);
+      return new GoogleSttProvider(providerSettings.googleApiKey, providerSettings.language);
     case 'browser':
     default:
       return new BrowserSttProvider({
-        language: settings.language,
-        useLocalModel: settings.useLocalModel,
-        boostPhrases: settings.boostPhrases
+        language: providerSettings.language,
+        useLocalModel: providerSettings.useLocalModel,
+        boostPhrases: providerSettings.boostPhrases
       });
   }
 }
 
-// 外部API用のAudioCapture + VADパイプラインをセットアップ
-async function setupExternalPipeline(provider) {
-  audioCapture = new AudioCapture();
-  vad = new Vad();
-
-  await vad.init();
-
-  audioCapture.onPcmData((frame) => vad.processFrame(frame));
-  vad.onSpeechStart(() => audioCapture?.startRecording());
-  vad.onSpeechEnd(() => {
-    if (!audioCapture) return;
-    const blob = audioCapture.stopRecording();
-    if (blob.size > 0) {
-      provider.sendAudio(blob);
-    }
-  });
-
-  await audioCapture.start();
-}
-
-// 音声認識を開始
-async function startRecognition() {
-  await loadSettings();
-
-  let provider;
-  try {
-    provider = createProvider();
-  } catch (error) {
-    sendError(error.message);
-    isStarting = false;
-    return;
-  }
-
-  currentProvider = provider;
-
-  provider.onStart(() => {
-    isActive = true;
-    isStarting = false;
-    chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: true });
-    console.log('[Voice Live Comment] 音声認識を開始しました');
-  });
-
-  provider.onResult((text) => {
-    inputAndSubmit(text);
-  });
-
-  provider.onError((error) => {
-    sendError(error.message);
-    if (isStarting) {
-      isStarting = false;
-    }
-  });
-
-  // 外部API使用時はAudioCapture + VADパイプラインを初期化
-  if (settings.sttProvider === 'google') {
-    try {
-      await setupExternalPipeline(provider);
-    } catch (error) {
-      sendError('VADの初期化に失敗しました: ' + error.message);
-      currentProvider = null;
-      isStarting = false;
-      return;
-    }
-  }
-
-  try {
-    await provider.start();
-  } catch (error) {
-    sendError(error.message);
-    // 外部API使用時に setupExternalPipeline で初期化済みのリソースを解放する
-    if (audioCapture) {
-      try { await audioCapture.stop(); } catch (e) {}
-      audioCapture = null;
-    }
-    if (vad) {
-      vad.destroy();
-      vad = null;
-    }
-    currentProvider = null;
-    isStarting = false;
-  }
-}
-
-// 音声認識を停止
-async function stopRecognition() {
-  isActive = false;
-
-  // await より前にモジュール変数を null に設定し、ローカルで参照を保持する。
-  // これにより並行する startRecognition() が古い参照を見ることを防ぎ、
-  // stop 側の await 後の null 代入で新しい参照を上書きすることも防ぐ。
-  const captureToStop = audioCapture;
-  audioCapture = null;
-  if (captureToStop) {
-    try { await captureToStop.stop(); } catch (e) {}
-  }
-
-  const vadToDestroy = vad;
-  vad = null;
-  if (vadToDestroy) {
-    vadToDestroy.destroy();
-  }
-
-  const providerToStop = currentProvider;
-  currentProvider = null;
-  if (providerToStop) {
-    try { await providerToStop.stop(); } catch (e) {}
-  }
-
-  chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive: false });
-  console.log('[Voice Live Comment] 音声認識を停止しました');
-}
+const session = new VoiceCommentSession({
+  loadSettings,
+  createProvider,
+  createExternalPipeline,
+  postComment: inputAndSubmit,
+  notifyActive: (isActive) => chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', isActive }),
+  notifyError: sendError
+});
 
 // メッセージ受信（チャット入力欄があるフレームのみ）
 if (hasChat) {
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'TOGGLE_RECOGNITION') {
-      if (isActive) {
-        stopRecognition();
-      } else if (isStarting) {
-        sendResponse({ isActive: false });
-        return true;
-      } else {
-        isStarting = true;
-        const startSafetyTimer = setTimeout(() => {
-          if (isStarting && !isActive) {
-            console.warn('[Voice Live Comment] 音声認識の開始がタイムアウトしました');
-            isStarting = false;
-            sendError('音声認識の開始がタイムアウトしました。再度お試しください。');
-          }
-        }, 10000);
-        startRecognition()
-          .catch((error) => {
-            console.error('[Voice Live Comment] startRecognition failed:', error);
-            sendError('音声認識の開始に失敗しました: ' + error.message);
-            isStarting = false;
-          })
-          .finally(() => clearTimeout(startSafetyTimer));
-      }
-      sendResponse({ isActive });
+      sendResponse(session.toggle());
     } else if (message.type === 'SETTINGS_UPDATED') {
-      loadSettings().then(async () => {
-        if (isActive) {
-          await stopRecognition();
-          // 並行するトグル操作からの二重起動を防止するため isStarting ガードを使用
-          isStarting = true;
-          const startSafetyTimer = setTimeout(() => {
-            if (isStarting && !isActive) {
-              console.warn('[Voice Live Comment] 音声認識の開始がタイムアウトしました');
-              isStarting = false;
-              sendError('音声認識の開始がタイムアウトしました。再度お試しください。');
-            }
-          }, 10000);
-          startRecognition()
-            .catch((error) => {
-              console.error('[Voice Live Comment] startRecognition failed:', error);
-              sendError('音声認識の開始に失敗しました: ' + error.message);
-              isStarting = false;
-            })
-            .finally(() => clearTimeout(startSafetyTimer));
-        }
-      });
+      loadSettings().then(() => session.restartWithLatestSettings());
     }
     return true;
   });
