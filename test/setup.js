@@ -79,7 +79,9 @@ MockSpeechRecognition._instances = mockInstances;
 MockSpeechRecognition._startShouldThrow = null;
 
 global.MockSpeechRecognition = MockSpeechRecognition;
-const mockSRConstructor = vi.fn().mockImplementation(() => new MockSpeechRecognition());
+const mockSRConstructor = vi.fn(function SpeechRecognitionMock() {
+  return new MockSpeechRecognition();
+});
 mockSRConstructor.available = vi.fn().mockResolvedValue('available');
 mockSRConstructor.install = vi.fn().mockResolvedValue(undefined);
 global.webkitSpeechRecognition = mockSRConstructor;
