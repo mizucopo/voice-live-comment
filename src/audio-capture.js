@@ -9,15 +9,7 @@ export class AudioCapture {
     this._mediaRecorder = null;
     this._scriptProcessor = null;
     this._pcmCallbacks = [];
-    this._isRecording = false;
-    this._recordingChunks = [];
-    this._allChunks = [];
-    this._headerChunk = null;
-    this._preRollBoundaryMs = 0;
-    this._mediaRecorderStartedAtMs = 0;
-    this._firstChunkTimecode = null;
-    this._lastChunkCapturedToMs = 0;
-    this._expectingHeaderChunk = false;
+    this._resetChunkState();
   }
 
   onPcmData(callback) {
@@ -60,15 +52,7 @@ export class AudioCapture {
         mimeType: 'audio/webm;codecs=opus'
       });
 
-      this._allChunks = [];
-      this._headerChunk = null;
-      this._recordingChunks = [];
-      this._isRecording = false;
-      this._preRollBoundaryMs = 0;
-      this._mediaRecorderStartedAtMs = Date.now();
-      this._firstChunkTimecode = null;
-      this._lastChunkCapturedToMs = this._mediaRecorderStartedAtMs;
-      this._expectingHeaderChunk = false;
+      this._resetChunkState(Date.now());
 
       this._mediaRecorder.ondataavailable = (e) => {
         this._handleDataAvailable(e);
@@ -124,6 +108,18 @@ export class AudioCapture {
     const blob = new Blob(this._recordingChunks, { type: 'audio/webm;codecs=opus' });
     this._recordingChunks = [];
     return blob;
+  }
+
+  _resetChunkState(startedAtMs = 0) {
+    this._isRecording = false;
+    this._recordingChunks = [];
+    this._allChunks = [];
+    this._headerChunk = null;
+    this._preRollBoundaryMs = 0;
+    this._mediaRecorderStartedAtMs = startedAtMs;
+    this._firstChunkTimecode = null;
+    this._lastChunkCapturedToMs = startedAtMs;
+    this._expectingHeaderChunk = false;
   }
 
   _handleDataAvailable(e) {

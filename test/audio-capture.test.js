@@ -14,6 +14,11 @@ describe('AudioCapture', () => {
     capture.mediaRecorder._simulateChunk(data, { timecode });
   }
 
+  async function startCaptureAt(ms) {
+    vi.setSystemTime(ms);
+    await capture.start();
+  }
+
   it('start() でgetUserMediaとMediaRecorderが起動する', async () => {
     await capture.start();
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({ audio: true });
@@ -42,8 +47,7 @@ describe('AudioCapture', () => {
   it('startRecording は直近3000msの発話前音声を含める', async () => {
     vi.useFakeTimers();
     try {
-      vi.setSystemTime(0);
-      await capture.start();
+      await startCaptureAt(0);
 
       simulateChunkAt(0, 'header|');
       simulateChunkAt(1250, 'pre-2750|');
@@ -67,8 +71,7 @@ describe('AudioCapture', () => {
   it('markPreRollBoundary 以前の音声を次の発話前音声に含めない', async () => {
     vi.useFakeTimers();
     try {
-      vi.setSystemTime(0);
-      await capture.start();
+      await startCaptureAt(0);
 
       simulateChunkAt(0, 'header|');
       simulateChunkAt(1000, 'previous-comment|');
@@ -91,8 +94,7 @@ describe('AudioCapture', () => {
   it('最初のメディアチャンクが境界以前なら次の録音に再利用しない', async () => {
     vi.useFakeTimers();
     try {
-      vi.setSystemTime(0);
-      await capture.start();
+      await startCaptureAt(0);
 
       simulateChunkAt(0, 'header|');
       simulateChunkAt(250, 'first-comment|', 0);
@@ -116,8 +118,7 @@ describe('AudioCapture', () => {
   it('配送が遅れた境界以前のチャンクを発話前音声に含めない', async () => {
     vi.useFakeTimers();
     try {
-      vi.setSystemTime(0);
-      await capture.start();
+      await startCaptureAt(0);
 
       simulateChunkAt(0, 'header|');
       simulateChunkAt(500, 'previous-comment|', 250);
