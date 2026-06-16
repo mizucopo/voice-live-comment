@@ -1,3 +1,7 @@
+const MEDIA_RECORDER_TIMESLICE_MS = 250;
+const PRE_ROLL_MS = 3000;
+const MAX_PRE_ROLL_CHUNKS = Math.ceil(PRE_ROLL_MS / MEDIA_RECORDER_TIMESLICE_MS);
+
 export class AudioCapture {
   constructor() {
     this._stream = null;
@@ -8,6 +12,7 @@ export class AudioCapture {
     this._isRecording = false;
     this._recordingChunks = [];
     this._allChunks = [];
+    this._preRollBoundaryMs = 0;
   }
 
   onPcmData(callback) {
@@ -53,21 +58,22 @@ export class AudioCapture {
       this._allChunks = [];
       this._recordingChunks = [];
       this._isRecording = false;
+      this._preRollBoundaryMs = 0;
 
       this._mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
-          this._allChunks.push(e.data);
-          // 最初のチャンク(WEBMヘッダー) + 直近19チャンク(約5秒分)に制限
-          if (this._allChunks.length > 20) {
-            this._allChunks = [this._allChunks[0], ...this._allChunks.slice(-19)];
-          }
+          this._allChunks.push({
+            data: e.data,
+            capturedAtMs: Date.now()
+          });
+          this._trimBufferedChunks();
           if (this._isRecording) {
             this._recordingChunks.push(e.data);
           }
         }
       };
 
-      this._mediaRecorder.start(250);
+      this._mediaRecorder.start(MEDIA_RECORDER_TIMESLICE_MS);
     } catch (e) {
       // 部分初期化済みリソースの解放
       try {
@@ -88,11 +94,19 @@ export class AudioCapture {
     const chunks = [];
     // 最初のチャンク（WEBMヘッダーを含む）を必ず含める
     if (this._allChunks.length > 0) {
-      chunks.push(this._allChunks[0]);
+      chunks.push(this._allChunks[0].data);
     }
-    // 直近のチャンク（発話直前の音声コンテキスト）
-    const preChunks = this._allChunks.slice(-2);
-    for (const chunk of preChunks) {
+    const startedAtMs = Date.now();
+    const preRollStartMs = Math.max(
+      startedAtMs - PRE_ROLL_MS,
+      this._preRollBoundaryMs
+    );
+    const preChunks = this._allChunks
+      .slice(1)
+      .filter(({ capturedAtMs }) => (
+        capturedAtMs >= preRollStartMs && capturedAtMs <= startedAtMs
+      ));
+    for (const { data: chunk } of preChunks) {
       if (!chunks.includes(chunk)) {
         chunks.push(chunk);
       }
@@ -101,11 +115,21 @@ export class AudioCapture {
     this._isRecording = true;
   }
 
+  markPreRollBoundary() {
+    this._preRollBoundaryMs = Date.now();
+  }
+
   stopRecording() {
     this._isRecording = false;
     const blob = new Blob(this._recordingChunks, { type: 'audio/webm;codecs=opus' });
     this._recordingChunks = [];
     return blob;
+  }
+
+  _trimBufferedChunks() {
+    const headerChunk = this._allChunks[0];
+    const recentChunks = this._allChunks.slice(1).slice(-MAX_PRE_ROLL_CHUNKS);
+    this._allChunks = headerChunk ? [headerChunk, ...recentChunks] : recentChunks;
   }
 
   async stop() {

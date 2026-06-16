@@ -10,6 +10,57 @@ function createDeferred() {
 }
 
 describe('createExternalPipeline', () => {
+  it('speechEnd 後に発話前音声の境界を更新する', async () => {
+    const provider = { sendAudio: vi.fn() };
+    let audioCapture;
+    let vad;
+
+    class FakeAudioCapture {
+      constructor() {
+        audioCapture = this;
+        this.markPreRollBoundary = vi.fn();
+      }
+
+      onPcmData(_callback) {}
+
+      startRecording() {}
+
+      stopRecording() {
+        return new Blob([], { type: 'audio/webm;codecs=opus' });
+      }
+
+      async start() {}
+
+      async stop() {}
+    }
+
+    class FakeVad {
+      constructor() {
+        vad = this;
+      }
+
+      async init() {}
+
+      onSpeechStart(_callback) {}
+
+      onSpeechEnd(callback) {
+        this.onSpeechEndCallback = callback;
+      }
+
+      destroy() {}
+    }
+
+    await createExternalPipeline(provider, {
+      AudioCaptureClass: FakeAudioCapture,
+      VadClass: FakeVad
+    });
+
+    vad.onSpeechEndCallback();
+
+    expect(audioCapture.markPreRollBoundary).toHaveBeenCalledTimes(1);
+    expect(provider.sendAudio).not.toHaveBeenCalled();
+  });
+
   it('停止中に speechEnd が発火しても音声を送信しない', async () => {
     const stopCapture = createDeferred();
     const provider = { sendAudio: vi.fn() };
