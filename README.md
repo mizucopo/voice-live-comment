@@ -62,10 +62,6 @@
 | STTプロバイダー | ブラウザ標準 | 音声認識エンジンの選択（ブラウザ標準 / Google Cloud STT） |
 | Google APIキー | （なし） | Google Cloud STT使用時のAPIキー |
 
-## 開発
-
-開発に貢献したい方は [CONTRIBUTING.md](./CONTRIBUTING.md) をご覧ください。
-
 ## ライセンス
 
 MIT License
