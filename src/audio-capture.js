@@ -124,9 +124,6 @@ export class AudioCapture {
 
   _handleDataAvailable(e) {
     if (e.data.size <= 0) {
-      if (this._expectingHeaderChunk) {
-        this._expectingHeaderChunk = false;
-      }
       return;
     }
 
@@ -142,6 +139,9 @@ export class AudioCapture {
     if (this._expectingHeaderChunk) {
       this._headerChunk = e.data;
       this._expectingHeaderChunk = false;
+      if (this._isRecording) {
+        this._recordingChunks.push(e.data);
+      }
       return;
     }
 

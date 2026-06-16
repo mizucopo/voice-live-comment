@@ -32,6 +32,28 @@ describe('AudioCapture', () => {
     expect(capture.mediaRecorder.requestData).toHaveBeenCalledTimes(1);
   });
 
+  it('空の初期Blob後も最初の非空Blobをヘッダーとして保持する', async () => {
+    vi.useFakeTimers();
+    try {
+      await startCaptureAt(0);
+
+      simulateChunkAt(0, '', 0);
+      simulateChunkAt(250, 'header|', 0);
+      for (let i = 0; i < 13; i++) {
+        const ms = 500 + i * 250;
+        simulateChunkAt(ms, `media-${i}|`, ms);
+      }
+
+      vi.setSystemTime(4000);
+      capture.startRecording();
+      const blob = capture.stopRecording();
+
+      await expect(blob.text()).resolves.toMatch(/^header\|/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('startRecording / stopRecording で音声Blobを取得できる', async () => {
     await capture.start();
 
@@ -133,6 +155,23 @@ describe('AudioCapture', () => {
       const text = await blob.text();
 
       expect(text).toBe('header|next-pre-roll|');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ヘッダー待ち中の最初の非空Blobを録音中なら現在の録音に含める', async () => {
+    vi.useFakeTimers();
+    try {
+      await startCaptureAt(0);
+
+      vi.setSystemTime(100);
+      capture.startRecording();
+      simulateChunkAt(150, 'header-and-first-audio|', 0);
+      simulateChunkAt(400, 'next-audio|', 250);
+      const blob = capture.stopRecording();
+
+      await expect(blob.text()).resolves.toBe('header-and-first-audio|next-audio|');
     } finally {
       vi.useRealTimers();
     }
