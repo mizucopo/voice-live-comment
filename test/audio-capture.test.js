@@ -9,9 +9,9 @@ describe('AudioCapture', () => {
     capture = new AudioCapture();
   });
 
-  function simulateChunkAt(ms, data) {
+  function simulateChunkAt(ms, data, timecode = ms) {
     vi.setSystemTime(ms);
-    capture.mediaRecorder._simulateChunk(data);
+    capture.mediaRecorder._simulateChunk(data, { timecode });
   }
 
   it('start() でgetUserMediaとMediaRecorderが起動する', async () => {
@@ -19,6 +19,12 @@ describe('AudioCapture', () => {
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({ audio: true });
     expect(capture.mediaRecorder).toBeDefined();
     expect(capture.mediaRecorder.state).toBe('recording');
+  });
+
+  it('start() は再利用するヘッダー用に初期データを分離する', async () => {
+    await capture.start();
+
+    expect(capture.mediaRecorder.requestData).toHaveBeenCalledTimes(1);
   });
 
   it('startRecording / stopRecording で音声Blobを取得できる', async () => {
@@ -36,6 +42,7 @@ describe('AudioCapture', () => {
   it('startRecording は直近3000msの発話前音声を含める', async () => {
     vi.useFakeTimers();
     try {
+      vi.setSystemTime(0);
       await capture.start();
 
       simulateChunkAt(0, 'header|');
@@ -60,6 +67,7 @@ describe('AudioCapture', () => {
   it('markPreRollBoundary 以前の音声を次の発話前音声に含めない', async () => {
     vi.useFakeTimers();
     try {
+      vi.setSystemTime(0);
       await capture.start();
 
       simulateChunkAt(0, 'header|');
@@ -75,6 +83,55 @@ describe('AudioCapture', () => {
 
       expect(text).toContain('next-pre-roll|');
       expect(text).not.toContain('previous-comment|');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('最初のメディアチャンクが境界以前なら次の録音に再利用しない', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(0);
+      await capture.start();
+
+      simulateChunkAt(0, 'header|');
+      simulateChunkAt(250, 'first-comment|', 0);
+      vi.setSystemTime(2000);
+      capture.markPreRollBoundary();
+      simulateChunkAt(2500, 'next-pre-roll|');
+
+      vi.setSystemTime(2600);
+      capture.startRecording();
+      const blob = capture.stopRecording();
+      const text = await blob.text();
+
+      expect(text).toContain('header|');
+      expect(text).toContain('next-pre-roll|');
+      expect(text).not.toContain('first-comment|');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('配送が遅れた境界以前のチャンクを発話前音声に含めない', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(0);
+      await capture.start();
+
+      simulateChunkAt(0, 'header|');
+      simulateChunkAt(500, 'previous-comment|', 250);
+      vi.setSystemTime(1000);
+      capture.markPreRollBoundary();
+      simulateChunkAt(1200, 'delayed-previous-comment|', 750);
+      simulateChunkAt(1500, 'next-pre-roll|', 1250);
+
+      vi.setSystemTime(1600);
+      capture.startRecording();
+      const blob = capture.stopRecording();
+      const text = await blob.text();
+
+      expect(text).toBe('header|next-pre-roll|');
     } finally {
       vi.useRealTimers();
     }

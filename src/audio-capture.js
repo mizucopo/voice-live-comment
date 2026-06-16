@@ -12,7 +12,12 @@ export class AudioCapture {
     this._isRecording = false;
     this._recordingChunks = [];
     this._allChunks = [];
+    this._headerChunk = null;
     this._preRollBoundaryMs = 0;
+    this._mediaRecorderStartedAtMs = 0;
+    this._firstChunkTimecode = null;
+    this._lastChunkCapturedToMs = 0;
+    this._expectingHeaderChunk = false;
   }
 
   onPcmData(callback) {
@@ -56,24 +61,21 @@ export class AudioCapture {
       });
 
       this._allChunks = [];
+      this._headerChunk = null;
       this._recordingChunks = [];
       this._isRecording = false;
       this._preRollBoundaryMs = 0;
+      this._mediaRecorderStartedAtMs = Date.now();
+      this._firstChunkTimecode = null;
+      this._lastChunkCapturedToMs = this._mediaRecorderStartedAtMs;
+      this._expectingHeaderChunk = false;
 
       this._mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          this._allChunks.push({
-            data: e.data,
-            capturedAtMs: Date.now()
-          });
-          this._trimBufferedChunks();
-          if (this._isRecording) {
-            this._recordingChunks.push(e.data);
-          }
-        }
+        this._handleDataAvailable(e);
       };
 
       this._mediaRecorder.start(MEDIA_RECORDER_TIMESLICE_MS);
+      this._requestHeaderChunk();
     } catch (e) {
       // 部分初期化済みリソースの解放
       try {
@@ -92,9 +94,8 @@ export class AudioCapture {
 
   startRecording() {
     const chunks = [];
-    // 最初のチャンク（WEBMヘッダーを含む）を必ず含める
-    if (this._allChunks.length > 0) {
-      chunks.push(this._allChunks[0].data);
+    if (this._headerChunk) {
+      chunks.push(this._headerChunk);
     }
     const startedAtMs = Date.now();
     const preRollStartMs = Math.max(
@@ -102,9 +103,8 @@ export class AudioCapture {
       this._preRollBoundaryMs
     );
     const preChunks = this._allChunks
-      .slice(1)
-      .filter(({ capturedAtMs }) => (
-        capturedAtMs >= preRollStartMs && capturedAtMs <= startedAtMs
+      .filter(({ capturedFromMs }) => (
+        capturedFromMs >= preRollStartMs && capturedFromMs <= startedAtMs
       ));
     for (const { data: chunk } of preChunks) {
       if (!chunks.includes(chunk)) {
@@ -126,10 +126,61 @@ export class AudioCapture {
     return blob;
   }
 
+  _handleDataAvailable(e) {
+    if (e.data.size <= 0) {
+      if (this._expectingHeaderChunk) {
+        this._expectingHeaderChunk = false;
+      }
+      return;
+    }
+
+    const deliveredAtMs = Date.now();
+    const capturedFromMs = this._resolveChunkStartMs(e, deliveredAtMs);
+    const chunk = {
+      data: e.data,
+      capturedFromMs
+    };
+
+    this._lastChunkCapturedToMs = deliveredAtMs;
+
+    if (this._expectingHeaderChunk) {
+      this._headerChunk = e.data;
+      this._expectingHeaderChunk = false;
+      return;
+    }
+
+    this._allChunks.push(chunk);
+    this._trimBufferedChunks();
+    if (this._isRecording) {
+      this._recordingChunks.push(e.data);
+    }
+  }
+
+  _requestHeaderChunk() {
+    if (typeof this._mediaRecorder.requestData !== 'function') return;
+
+    // 最初のBlobがヘッダーと音声を併せ持つ前に、再利用するヘッダーだけを分離する。
+    this._expectingHeaderChunk = true;
+    try {
+      this._mediaRecorder.requestData();
+    } catch (_) {
+      this._expectingHeaderChunk = false;
+    }
+  }
+
+  _resolveChunkStartMs(e, deliveredAtMs) {
+    if (Number.isFinite(e.timecode)) {
+      if (this._firstChunkTimecode === null) {
+        this._firstChunkTimecode = e.timecode;
+      }
+      return this._mediaRecorderStartedAtMs + Math.max(0, e.timecode - this._firstChunkTimecode);
+    }
+
+    return this._lastChunkCapturedToMs || deliveredAtMs;
+  }
+
   _trimBufferedChunks() {
-    const headerChunk = this._allChunks[0];
-    const recentChunks = this._allChunks.slice(1).slice(-MAX_PRE_ROLL_CHUNKS);
-    this._allChunks = headerChunk ? [headerChunk, ...recentChunks] : recentChunks;
+    this._allChunks = this._allChunks.slice(-MAX_PRE_ROLL_CHUNKS);
   }
 
   async stop() {
