@@ -41,11 +41,13 @@ describe('Vad', () => {
     vad.processFrame(speechFrame);
     expect(onSpeechStart).toHaveBeenCalled();
 
-    // 無音フレーム（閾値以下）→ 1000ms後にspeechEnd
+    // 無音フレーム（閾値以下）→ 3000ms後にspeechEnd
     vi.useFakeTimers();
     const silenceFrame = new Float32Array(480).fill(0.001);
     vad.processFrame(silenceFrame);
-    vi.advanceTimersByTime(1000);
+    vi.advanceTimersByTime(2999);
+    expect(onSpeechEnd).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
     expect(onSpeechEnd).toHaveBeenCalled();
     vi.useRealTimers();
   });
@@ -82,7 +84,7 @@ describe('Vad', () => {
     const silenceFrame = new Float32Array(480).fill(0.001);
     vad.processFrame(silenceFrame);
     vad.destroy();
-    vi.advanceTimersByTime(1000);
+    vi.advanceTimersByTime(3000);
     expect(onSpeechEnd).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
