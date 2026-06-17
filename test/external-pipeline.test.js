@@ -10,6 +10,46 @@ function createDeferred() {
 }
 
 describe('createExternalPipeline', () => {
+  it('providerの録音形式をAudioCaptureに渡す', async () => {
+    const provider = { sendAudio: vi.fn(), recordingFormat: 'pcm16' };
+    let audioCaptureOptions;
+
+    class FakeAudioCapture {
+      constructor(options) {
+        audioCaptureOptions = options;
+      }
+
+      onPcmData(_callback) {}
+
+      startRecording() {}
+
+      stopRecording() {
+        return new Blob([], { type: 'audio/l16;rate=16000' });
+      }
+
+      async start() {}
+
+      async stop() {}
+    }
+
+    class FakeVad {
+      async init() {}
+
+      onSpeechStart(_callback) {}
+
+      onSpeechEnd(_callback) {}
+
+      destroy() {}
+    }
+
+    await createExternalPipeline(provider, {
+      AudioCaptureClass: FakeAudioCapture,
+      VadClass: FakeVad
+    });
+
+    expect(audioCaptureOptions).toEqual({ recordingFormat: 'pcm16' });
+  });
+
   it('speechEnd 後に発話前音声の境界を更新する', async () => {
     const provider = { sendAudio: vi.fn() };
     let audioCapture;

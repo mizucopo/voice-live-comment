@@ -5,7 +5,9 @@ export async function createExternalPipeline(provider, {
   AudioCaptureClass = AudioCapture,
   VadClass = Vad
 } = {}) {
-  const audioCapture = new AudioCaptureClass();
+  const audioCapture = new AudioCaptureClass({
+    recordingFormat: provider.recordingFormat || 'webm'
+  });
   const vad = new VadClass();
   let isStopped = false;
 

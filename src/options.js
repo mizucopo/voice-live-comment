@@ -6,10 +6,11 @@ const DEFAULT_SETTINGS = {
   useLocalModel: false,
   boostPhrases: [],
   dictionary: '',
-  googleApiKey: ''
+  googleApiKey: '',
+  xaiApiKey: ''
 };
 
-const SUPPORTED_STT_PROVIDERS = new Set(['browser', 'google']);
+const SUPPORTED_STT_PROVIDERS = new Set(['browser', 'google', 'grok']);
 
 function normalizeSttProvider(provider) {
   return SUPPORTED_STT_PROVIDERS.has(provider) ? provider : DEFAULT_SETTINGS.sttProvider;
@@ -19,14 +20,18 @@ function normalizeSttProvider(provider) {
 function updateProviderUI(provider) {
   const browserSettings = document.getElementById('browserSettings');
   const googleSettings = document.getElementById('googleSettings');
+  const grokSettings = document.getElementById('grokSettings');
 
   browserSettings.style.display = 'none';
   googleSettings.style.display = 'none';
+  grokSettings.style.display = 'none';
 
   if (provider === 'browser') {
     browserSettings.style.display = '';
   } else if (provider === 'google') {
     googleSettings.style.display = '';
+  } else if (provider === 'grok') {
+    grokSettings.style.display = '';
   }
 }
 
@@ -41,6 +46,7 @@ export async function loadSettings() {
   document.getElementById('boostPhrases').value = result.boostPhrases.join('\n');
   document.getElementById('dictionary').value = result.dictionary;
   document.getElementById('googleApiKey').value = result.googleApiKey;
+  document.getElementById('xaiApiKey').value = result.xaiApiKey;
   updateProviderUI(sttProvider);
   return { ...result, sttProvider };
 }
@@ -57,9 +63,10 @@ export async function saveSettings() {
     .filter(line => line);
   const dictionary = document.getElementById('dictionary').value;
   const googleApiKey = document.getElementById('googleApiKey').value.trim();
+  const xaiApiKey = document.getElementById('xaiApiKey').value.trim();
 
   await chrome.storage.sync.set({
-    sttProvider, autoPost, language, useLocalModel, boostPhrases, dictionary, googleApiKey
+    sttProvider, autoPost, language, useLocalModel, boostPhrases, dictionary, googleApiKey, xaiApiKey
   });
 
   // content scriptへ設定更新を通知
@@ -74,7 +81,7 @@ export async function saveSettings() {
     status.textContent = '';
   }, 2000);
 
-  return { sttProvider, autoPost, language, useLocalModel, boostPhrases, dictionary, googleApiKey };
+  return { sttProvider, autoPost, language, useLocalModel, boostPhrases, dictionary, googleApiKey, xaiApiKey };
 }
 
 // 初期化

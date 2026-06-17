@@ -90,7 +90,7 @@ export class VoiceCommentSession {
     this._currentProvider = provider;
     this._bindProvider(provider);
 
-    if (settings.sttProvider === 'google') {
+    if (settings.sttProvider === 'google' || settings.sttProvider === 'grok') {
       try {
         this._externalPipeline = await this._createExternalPipeline(provider);
       } catch (error) {
