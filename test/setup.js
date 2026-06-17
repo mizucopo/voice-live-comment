@@ -95,6 +95,7 @@ class MockMediaRecorder {
     this.state = 'inactive';
     this.ondataavailable = null;
     this.onstop = null;
+    this.requestData = vi.fn();
   }
   start(timeslice) {
     this.state = 'recording';
@@ -103,9 +104,12 @@ class MockMediaRecorder {
   stop() {
     this.state = 'inactive';
   }
-  _simulateChunk(data) {
+  _simulateChunk(data, options = {}) {
     if (this.ondataavailable) {
-      this.ondataavailable({ data: new Blob([data], { type: 'audio/webm;codecs=opus' }) });
+      this.ondataavailable({
+        data: new Blob([data], { type: 'audio/webm;codecs=opus' }),
+        timecode: options.timecode
+      });
     }
   }
 }

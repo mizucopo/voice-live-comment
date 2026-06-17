@@ -22,6 +22,7 @@ export async function createExternalPipeline(provider, {
       if (isStopped) return;
 
       const blob = audioCapture.stopRecording();
+      audioCapture.markPreRollBoundary?.();
       if (blob.size > 0) {
         provider.sendAudio(blob);
       }
