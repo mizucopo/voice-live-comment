@@ -28,6 +28,13 @@ describe('AudioCapture', () => {
     }
   }
 
+  function markBoundaryAt(ms) {
+    const previousRecorder = capture.mediaRecorder;
+    vi.setSystemTime(ms);
+    capture.markPreRollBoundary();
+    return previousRecorder;
+  }
+
   it('start() でgetUserMediaとMediaRecorderが起動する', async () => {
     await capture.start();
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({ audio: true });
@@ -134,7 +141,7 @@ describe('AudioCapture', () => {
     });
   });
 
-  it('境界をまたぐチャンクを次の発話前音声に含める', async () => {
+  it('発話前音声の下限をまたぐチャンクを含める', async () => {
     await withFakeTimers(async () => {
       await startCaptureAt(0);
 
@@ -155,9 +162,7 @@ describe('AudioCapture', () => {
 
       simulateChunkAt(0, 'header|');
       simulateChunkAt(500, 'previous-comment|', 250);
-      const previousRecorder = capture.mediaRecorder;
-      vi.setSystemTime(1000);
-      capture.markPreRollBoundary();
+      const previousRecorder = markBoundaryAt(1000);
       vi.setSystemTime(1200);
       previousRecorder._simulateChunk('delayed-previous-comment|', { timecode: 750 });
       simulateChunkAt(1500, 'next-pre-roll|', 1250);
@@ -195,8 +200,7 @@ describe('AudioCapture', () => {
       simulateChunkAt(150, 'first-comment|', 0);
       capture.stopRecording();
 
-      vi.setSystemTime(1000);
-      capture.markPreRollBoundary();
+      markBoundaryAt(1000);
       simulateChunkAt(1250, 'next-pre-roll|', 1250);
 
       vi.setSystemTime(1500);
@@ -219,8 +223,7 @@ describe('AudioCapture', () => {
       simulateChunkAt(150, 'first-comment|', 0);
       capture.stopRecording();
 
-      vi.setSystemTime(1000);
-      capture.markPreRollBoundary();
+      markBoundaryAt(1000);
       simulateChunkAt(1000, 'fresh-header|', 0);
       for (let i = 0; i < 13; i++) {
         const ms = 1250 + i * 250;
@@ -243,9 +246,7 @@ describe('AudioCapture', () => {
 
       simulateChunkAt(0, 'header|');
       simulateChunkAt(500, 'previous-comment|', 250);
-      const previousRecorder = capture.mediaRecorder;
-      vi.setSystemTime(1000);
-      capture.markPreRollBoundary();
+      const previousRecorder = markBoundaryAt(1000);
 
       vi.setSystemTime(1200);
       capture.startRecording();

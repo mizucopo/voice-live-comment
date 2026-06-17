@@ -79,8 +79,8 @@ export class AudioCapture {
     );
     this._recordingPreRollStartMs = preRollStartMs;
     const preChunks = this._allChunks
-      .filter(({ capturedFromMs, capturedToMs }) => (
-        capturedToMs > preRollStartMs && capturedFromMs <= startedAtMs
+      .filter((chunk) => (
+        this._chunkOverlapsRecordingStart(chunk) && chunk.capturedFromMs <= startedAtMs
       ));
     for (const { data } of preChunks) {
       if (!chunks.includes(data)) {
@@ -162,10 +162,14 @@ export class AudioCapture {
     if (!this._isRecording) {
       return;
     }
-    if (chunk.capturedToMs <= this._recordingPreRollStartMs) {
+    if (!this._chunkOverlapsRecordingStart(chunk)) {
       return;
     }
     this._recordingChunks.push(chunk.data);
+  }
+
+  _chunkOverlapsRecordingStart(chunk) {
+    return chunk.capturedToMs > this._recordingPreRollStartMs;
   }
 
   _startMediaRecorderSegment(startedAtMs) {
