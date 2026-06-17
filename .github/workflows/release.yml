@@ -1,7 +1,7 @@
 name: Release extension
 
 on:
-  pull_request:
+  pull_request_target:
     types:
       - closed
     branches:
@@ -53,14 +53,24 @@ jobs:
           fi
 
           release_tag="v${package_version}"
+          tag_already_exists="false"
+
           if git ls-remote --exit-code --tags origin "refs/tags/${release_tag}" >/dev/null 2>&1; then
-            echo "Release tag already exists: ${release_tag}" >&2
-            exit 1
+            git fetch --force --no-tags origin "refs/tags/${release_tag}:refs/tags/${release_tag}"
+            existing_tag_commit="$(git rev-list -n 1 "${release_tag}")"
+
+            if [[ "$existing_tag_commit" != "$MERGE_COMMIT_SHA" ]]; then
+              echo "Release tag already exists for another commit: ${release_tag} (${existing_tag_commit})" >&2
+              exit 1
+            fi
+
+            tag_already_exists="true"
           fi
 
           {
             echo "RELEASE_VERSION=${package_version}"
             echo "RELEASE_TAG=${release_tag}"
+            echo "TAG_ALREADY_EXISTS=${tag_already_exists}"
             echo "ZIP_NAME=voice-live-comment-v${package_version}.zip"
           } >> "$GITHUB_ENV"
 
@@ -97,6 +107,11 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [[ "$TAG_ALREADY_EXISTS" == "true" ]]; then
+            echo "Release tag already exists on merge commit: ${RELEASE_TAG}"
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$RELEASE_TAG" -m "Release ${RELEASE_TAG}"
@@ -106,6 +121,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$RELEASE_TAG" "$ZIP_NAME" \
-            --title "Voice Live Comment ${RELEASE_TAG}" \
-            --notes "Chrome拡張機能の配布版zipです。zipを展開し、Chromeの「パッケージ化されていない拡張機能を読み込む」から展開後のフォルダを選択してください。"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$ZIP_NAME" --clobber
+          else
+            gh release create "$RELEASE_TAG" "$ZIP_NAME" \
+              --title "Voice Live Comment ${RELEASE_TAG}" \
+              --notes "Chrome拡張機能の配布版zipです。zipを展開し、Chromeの「パッケージ化されていない拡張機能を読み込む」から展開後のフォルダを選択してください。"
+          fi
