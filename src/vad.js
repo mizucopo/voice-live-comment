@@ -5,7 +5,7 @@ export class Vad {
     this._speechStartCallbacks = [];
     this._speechEndCallbacks = [];
     this.THRESHOLD = 0.05;
-    this.SILENCE_TIMEOUT_MS = 1000;
+    this.SPEECH_END_GRACE_MS = 3000;
     this.FRAME_SIZE = 480; // 30ms at 16kHz
   }
 
@@ -45,7 +45,7 @@ export class Vad {
           this._isSpeech = false;
           this._silenceTimer = null;
           for (const cb of this._speechEndCallbacks) cb();
-        }, this.SILENCE_TIMEOUT_MS);
+        }, this.SPEECH_END_GRACE_MS);
       }
     }
   }

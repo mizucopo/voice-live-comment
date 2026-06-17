@@ -1,13 +1,16 @@
+const MEDIA_RECORDER_TIMESLICE_MS = 250;
+const PRE_ROLL_MS = 3000;
+const MAX_PRE_ROLL_CHUNKS = Math.ceil(PRE_ROLL_MS / MEDIA_RECORDER_TIMESLICE_MS);
+
 export class AudioCapture {
-  constructor() {
+  constructor({ recordingFormat = 'webm' } = {}) {
+    this._recordingFormat = recordingFormat;
     this._stream = null;
     this._audioContext = null;
     this._mediaRecorder = null;
     this._scriptProcessor = null;
     this._pcmCallbacks = [];
-    this._isRecording = false;
-    this._recordingChunks = [];
-    this._allChunks = [];
+    this._resetChunkState();
   }
 
   onPcmData(callback) {
@@ -33,6 +36,9 @@ export class AudioCapture {
       this._scriptProcessor.onaudioprocess = (e) => {
         const pcmData = e.inputBuffer.getChannelData(0);
         const resampled = AudioCapture.resampleTo16k(pcmData, this._audioContext.sampleRate);
+        if (this._recordingFormat === 'pcm16') {
+          this._handlePcmData(resampled);
+        }
         for (const cb of this._pcmCallbacks) {
           cb(resampled);
         }
@@ -46,28 +52,11 @@ export class AudioCapture {
       this._scriptProcessor.connect(silentGain);
       silentGain.connect(this._audioContext.destination);
 
-      this._mediaRecorder = new MediaRecorder(this._stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
-
-      this._allChunks = [];
-      this._recordingChunks = [];
-      this._isRecording = false;
-
-      this._mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          this._allChunks.push(e.data);
-          // 最初のチャンク(WEBMヘッダー) + 直近19チャンク(約5秒分)に制限
-          if (this._allChunks.length > 20) {
-            this._allChunks = [this._allChunks[0], ...this._allChunks.slice(-19)];
-          }
-          if (this._isRecording) {
-            this._recordingChunks.push(e.data);
-          }
-        }
-      };
-
-      this._mediaRecorder.start(250);
+      const startedAtMs = Date.now();
+      this._resetChunkState(startedAtMs);
+      if (this._recordingFormat === 'webm') {
+        this._startMediaRecorderSegment(startedAtMs);
+      }
     } catch (e) {
       // 部分初期化済みリソースの解放
       try {
@@ -86,26 +75,208 @@ export class AudioCapture {
 
   startRecording() {
     const chunks = [];
-    // 最初のチャンク（WEBMヘッダーを含む）を必ず含める
-    if (this._allChunks.length > 0) {
-      chunks.push(this._allChunks[0]);
+    if (this._headerChunk) {
+      chunks.push(this._headerChunk);
     }
-    // 直近のチャンク（発話直前の音声コンテキスト）
-    const preChunks = this._allChunks.slice(-2);
-    for (const chunk of preChunks) {
-      if (!chunks.includes(chunk)) {
-        chunks.push(chunk);
+    const startedAtMs = Date.now();
+    const preRollStartMs = Math.max(
+      startedAtMs - PRE_ROLL_MS,
+      this._preRollBoundaryMs
+    );
+    this._recordingPreRollStartMs = preRollStartMs;
+    const preChunks = this._allChunks
+      .filter((chunk) => (
+        this._chunkOverlapsRecordingStart(chunk) && chunk.capturedFromMs <= startedAtMs
+      ));
+    for (const { data } of preChunks) {
+      if (!chunks.includes(data)) {
+        chunks.push(data);
       }
     }
     this._recordingChunks = chunks;
+    this._recordingPcmChunks = this._recordingFormat === 'pcm16'
+      ? this._allPcmChunks
+        .filter((chunk) => (
+          this._chunkOverlapsRecordingStart(chunk) && chunk.capturedFromMs <= startedAtMs
+        ))
+        .map(({ data }) => data)
+      : [];
     this._isRecording = true;
+  }
+
+  markPreRollBoundary() {
+    const boundaryMs = Date.now();
+    this._preRollBoundaryMs = boundaryMs;
+    this._allChunks = this._allChunks
+      .filter(({ capturedToMs }) => capturedToMs > boundaryMs);
+    this._allPcmChunks = this._allPcmChunks
+      .filter(({ capturedToMs }) => capturedToMs > boundaryMs);
+    if (this._mediaRecorder && this._mediaRecorder.state !== 'inactive') {
+      this._startMediaRecorderSegment(boundaryMs);
+    }
   }
 
   stopRecording() {
     this._isRecording = false;
+    if (this._recordingFormat === 'pcm16') {
+      const blob = AudioCapture.float32FramesToPcm16Blob(this._recordingPcmChunks);
+      this._recordingPcmChunks = [];
+      this._recordingChunks = [];
+      return blob;
+    }
+
     const blob = new Blob(this._recordingChunks, { type: 'audio/webm;codecs=opus' });
     this._recordingChunks = [];
+    this._recordingPcmChunks = [];
     return blob;
+  }
+
+  _resetChunkState(startedAtMs = 0) {
+    this._isRecording = false;
+    this._recordingChunks = [];
+    this._recordingPcmChunks = [];
+    this._allChunks = [];
+    this._allPcmChunks = [];
+    this._headerChunk = null;
+    this._preRollBoundaryMs = 0;
+    this._mediaRecorderStartedAtMs = startedAtMs;
+    this._firstChunkTimecode = null;
+    this._lastChunkCapturedToMs = startedAtMs;
+    this._expectingHeaderChunk = false;
+    this._recordingPreRollStartMs = 0;
+    this._segmentId = 0;
+    this._lastPcmCapturedToMs = startedAtMs;
+  }
+
+  _handlePcmData(frame) {
+    const data = new Float32Array(frame);
+    const durationMs = (data.length / 16000) * 1000;
+    const capturedFromMs = this._lastPcmCapturedToMs;
+    const capturedToMs = capturedFromMs + durationMs;
+    const chunk = { data, capturedFromMs, capturedToMs };
+
+    this._lastPcmCapturedToMs = capturedToMs;
+    this._allPcmChunks.push(chunk);
+    this._trimBufferedPcmChunks();
+
+    if (this._isRecording && this._chunkOverlapsRecordingStart(chunk)) {
+      this._recordingPcmChunks.push(data);
+    }
+  }
+
+  _handleDataAvailable(e, segmentId = this._segmentId) {
+    if (segmentId !== this._segmentId) {
+      return;
+    }
+
+    const data = e.data;
+    if (data.size <= 0) {
+      return;
+    }
+
+    const deliveredAtMs = Date.now();
+    const capturedFromMs = this._resolveChunkStartMs(e, deliveredAtMs);
+    const capturedToMs = this._resolveChunkEndMs(capturedFromMs);
+    const chunk = {
+      data,
+      capturedFromMs,
+      capturedToMs
+    };
+
+    this._lastChunkCapturedToMs = capturedToMs;
+
+    if (this._expectingHeaderChunk) {
+      this._expectingHeaderChunk = false;
+      if (this._isRecording) {
+        this._appendRecordingChunk(chunk);
+      } else {
+        this._headerChunk = data;
+      }
+      return;
+    }
+
+    this._allChunks.push(chunk);
+    this._trimBufferedChunks();
+    this._appendRecordingChunk(chunk);
+  }
+
+  _appendRecordingChunk(chunk) {
+    if (!this._isRecording) {
+      return;
+    }
+    if (!this._chunkOverlapsRecordingStart(chunk)) {
+      return;
+    }
+    this._recordingChunks.push(chunk.data);
+  }
+
+  _chunkOverlapsRecordingStart(chunk) {
+    return chunk.capturedToMs > this._recordingPreRollStartMs;
+  }
+
+  _startMediaRecorderSegment(startedAtMs) {
+    const previousRecorder = this._mediaRecorder;
+    this._segmentId += 1;
+
+    this._headerChunk = null;
+    this._expectingHeaderChunk = false;
+    this._mediaRecorderStartedAtMs = startedAtMs;
+    this._firstChunkTimecode = null;
+    this._lastChunkCapturedToMs = startedAtMs;
+
+    if (previousRecorder && previousRecorder.state !== 'inactive') {
+      previousRecorder.stop();
+    }
+
+    this._mediaRecorder = new MediaRecorder(this._stream, {
+      mimeType: 'audio/webm;codecs=opus'
+    });
+    const segmentId = this._segmentId;
+    this._mediaRecorder.ondataavailable = (e) => {
+      this._handleDataAvailable(e, segmentId);
+    };
+    this._mediaRecorder.start(MEDIA_RECORDER_TIMESLICE_MS);
+    this._requestHeaderChunk();
+  }
+
+  _requestHeaderChunk() {
+    if (typeof this._mediaRecorder.requestData !== 'function') return;
+
+    // 最初のBlobがヘッダーと音声を併せ持つ前に、再利用するヘッダーだけを分離する。
+    this._expectingHeaderChunk = true;
+    try {
+      this._mediaRecorder.requestData();
+    } catch (_) {
+      this._expectingHeaderChunk = false;
+    }
+  }
+
+  _resolveChunkStartMs(e, deliveredAtMs) {
+    if (Number.isFinite(e.timecode)) {
+      if (this._firstChunkTimecode === null) {
+        this._firstChunkTimecode = e.timecode;
+      }
+      return this._mediaRecorderStartedAtMs + Math.max(0, e.timecode - this._firstChunkTimecode);
+    }
+
+    return this._lastChunkCapturedToMs || deliveredAtMs;
+  }
+
+  _resolveChunkEndMs(capturedFromMs) {
+    return capturedFromMs + MEDIA_RECORDER_TIMESLICE_MS;
+  }
+
+  _trimBufferedChunks() {
+    this._allChunks = this._allChunks.slice(-MAX_PRE_ROLL_CHUNKS);
+  }
+
+  _trimBufferedPcmChunks() {
+    const lowerBoundMs = Math.max(
+      this._preRollBoundaryMs,
+      this._lastPcmCapturedToMs - PRE_ROLL_MS
+    );
+    this._allPcmChunks = this._allPcmChunks
+      .filter(({ capturedToMs }) => capturedToMs > lowerBoundMs);
   }
 
   async stop() {
@@ -141,5 +312,23 @@ export class AudioCapture {
       result[i] = data[srcIndexFloor] * (1 - fraction) + data[srcIndexCeil] * fraction;
     }
     return result;
+  }
+
+  static float32FramesToPcm16Blob(frames) {
+    const totalLength = frames.reduce((sum, frame) => sum + frame.length, 0);
+    const buffer = new ArrayBuffer(totalLength * 2);
+    const view = new DataView(buffer);
+    let offset = 0;
+
+    for (const frame of frames) {
+      for (const sample of frame) {
+        const clamped = Math.max(-1, Math.min(1, sample));
+        const value = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
+        view.setInt16(offset, value, true);
+        offset += 2;
+      }
+    }
+
+    return new Blob([buffer], { type: 'audio/l16;rate=16000' });
   }
 }

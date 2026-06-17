@@ -35,7 +35,8 @@ const mockRuntime = {
   onMessage: {
     addListener: vi.fn(),
     removeListener: vi.fn()
-  }
+  },
+  getURL: vi.fn().mockImplementation((path) => `chrome-extension://test-id/${path}`)
 };
 
 global.chrome = {
@@ -78,7 +79,9 @@ MockSpeechRecognition._instances = mockInstances;
 MockSpeechRecognition._startShouldThrow = null;
 
 global.MockSpeechRecognition = MockSpeechRecognition;
-const mockSRConstructor = vi.fn().mockImplementation(() => new MockSpeechRecognition());
+const mockSRConstructor = vi.fn(function SpeechRecognitionMock() {
+  return new MockSpeechRecognition();
+});
 mockSRConstructor.available = vi.fn().mockResolvedValue('available');
 mockSRConstructor.install = vi.fn().mockResolvedValue(undefined);
 global.webkitSpeechRecognition = mockSRConstructor;
@@ -92,6 +95,7 @@ class MockMediaRecorder {
     this.state = 'inactive';
     this.ondataavailable = null;
     this.onstop = null;
+    this.requestData = vi.fn();
   }
   start(timeslice) {
     this.state = 'recording';
@@ -100,9 +104,12 @@ class MockMediaRecorder {
   stop() {
     this.state = 'inactive';
   }
-  _simulateChunk(data) {
+  _simulateChunk(data, options = {}) {
     if (this.ondataavailable) {
-      this.ondataavailable({ data: new Blob([data], { type: 'audio/webm;codecs=opus' }) });
+      this.ondataavailable({
+        data: new Blob([data], { type: 'audio/webm;codecs=opus' }),
+        timecode: options.timecode
+      });
     }
   }
 }
