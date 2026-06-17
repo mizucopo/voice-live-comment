@@ -36,7 +36,9 @@ export class AudioCapture {
       this._scriptProcessor.onaudioprocess = (e) => {
         const pcmData = e.inputBuffer.getChannelData(0);
         const resampled = AudioCapture.resampleTo16k(pcmData, this._audioContext.sampleRate);
-        this._handlePcmData(resampled);
+        if (this._recordingFormat === 'pcm16') {
+          this._handlePcmData(resampled);
+        }
         for (const cb of this._pcmCallbacks) {
           cb(resampled);
         }
@@ -92,11 +94,13 @@ export class AudioCapture {
       }
     }
     this._recordingChunks = chunks;
-    this._recordingPcmChunks = this._allPcmChunks
-      .filter((chunk) => (
-        this._pcmChunkOverlapsRecordingStart(chunk) && chunk.capturedFromMs <= startedAtMs
-      ))
-      .map(({ data }) => data);
+    this._recordingPcmChunks = this._recordingFormat === 'pcm16'
+      ? this._allPcmChunks
+        .filter((chunk) => (
+          this._chunkOverlapsRecordingStart(chunk) && chunk.capturedFromMs <= startedAtMs
+        ))
+        .map(({ data }) => data)
+      : [];
     this._isRecording = true;
   }
 
@@ -155,7 +159,7 @@ export class AudioCapture {
     this._allPcmChunks.push(chunk);
     this._trimBufferedPcmChunks();
 
-    if (this._isRecording && this._pcmChunkOverlapsRecordingStart(chunk)) {
+    if (this._isRecording && this._chunkOverlapsRecordingStart(chunk)) {
       this._recordingPcmChunks.push(data);
     }
   }
@@ -207,10 +211,6 @@ export class AudioCapture {
   }
 
   _chunkOverlapsRecordingStart(chunk) {
-    return chunk.capturedToMs > this._recordingPreRollStartMs;
-  }
-
-  _pcmChunkOverlapsRecordingStart(chunk) {
     return chunk.capturedToMs > this._recordingPreRollStartMs;
   }
 
