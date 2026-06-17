@@ -1,5 +1,90 @@
 import { isTargetPage } from './utils/url.js';
 
+const GROK_STT_ENDPOINT = 'https://api.x.ai/v1/stt';
+const SUPPORTED_FORMAT_LANGUAGES = new Set([
+  'ar', 'cs', 'da', 'de', 'en', 'es', 'fa', 'fil', 'fr', 'hi',
+  'id', 'it', 'ja', 'ko', 'mk', 'ms', 'nl', 'pl', 'pt', 'ro',
+  'ru', 'sv', 'th', 'tr', 'vi'
+]);
+
+function normalizeGrokLanguage(language) {
+  const code = String(language || '').split('-')[0].toLowerCase();
+  return SUPPORTED_FORMAT_LANGUAGES.has(code) ? code : '';
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function base64ToBlob(base64, type) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type });
+}
+
+function createGrokSttRequestBody({ audioBase64, language, boostPhrases = [] }) {
+  const formData = new FormData();
+  const normalizedLanguage = normalizeGrokLanguage(language);
+
+  if (normalizedLanguage) {
+    formData.append('format', 'true');
+    formData.append('language', normalizedLanguage);
+  }
+
+  formData.append('audio_format', 'pcm');
+  formData.append('sample_rate', '16000');
+
+  for (const phrase of boostPhrases) {
+    formData.append('keyterm', phrase);
+  }
+
+  formData.append('file', base64ToBlob(audioBase64, 'audio/l16;rate=16000'), 'audio.pcm');
+  return formData;
+}
+
+async function recognizeGrokSpeech(message) {
+  if (!message.apiKey) {
+    throw new Error('xAI APIキーが設定されていません。設定画面で入力してください。');
+  }
+
+  const maxRetries = 2;
+  let lastError;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(GROK_STT_ENDPOINT, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${message.apiKey}` },
+        body: createGrokSttRequestBody(message)
+      });
+
+      if (!response.ok) {
+        if (response.status === 429 && attempt < maxRetries) {
+          await delay(Math.pow(2, attempt) * 1000);
+          continue;
+        }
+        const errorBody = await response.text().catch(() => '');
+        throw new Error(`Grok STT API error ${response.status}: ${errorBody || response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.text || '';
+    } catch (error) {
+      lastError = error;
+      if (error.message.includes('429') && attempt < maxRetries) {
+        await delay(Math.pow(2, attempt) * 1000);
+        continue;
+      }
+      break;
+    }
+  }
+
+  throw lastError;
+}
+
 // アイコンクリック時の処理
 chrome.action.onClicked.addListener(async (tab) => {
   // YouTube/YouTube Studioのページかチェック
@@ -70,5 +155,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.error('[Voice Live Comment] エラー:', message.message);
     setBadgeError();
     showNotification('エラー', message.message);
+  } else if (message.type === 'GROK_STT_RECOGNIZE') {
+    recognizeGrokSpeech(message)
+      .then((text) => sendResponse({ ok: true, text }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
   }
 });
