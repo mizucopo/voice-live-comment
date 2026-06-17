@@ -19,6 +19,15 @@ describe('AudioCapture', () => {
     await capture.start();
   }
 
+  async function withFakeTimers(callback) {
+    vi.useFakeTimers();
+    try {
+      await callback();
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
   it('start() でgetUserMediaとMediaRecorderが起動する', async () => {
     await capture.start();
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({ audio: true });
@@ -33,8 +42,7 @@ describe('AudioCapture', () => {
   });
 
   it('空の初期Blob後も最初の非空Blobをヘッダーとして保持する', async () => {
-    vi.useFakeTimers();
-    try {
+    await withFakeTimers(async () => {
       await startCaptureAt(0);
 
       simulateChunkAt(0, '', 0);
@@ -49,9 +57,7 @@ describe('AudioCapture', () => {
       const blob = capture.stopRecording();
 
       await expect(blob.text()).resolves.toMatch(/^header\|/);
-    } finally {
-      vi.useRealTimers();
-    }
+    });
   });
 
   it('startRecording / stopRecording で音声Blobを取得できる', async () => {
@@ -67,8 +73,7 @@ describe('AudioCapture', () => {
   });
 
   it('startRecording は直近3000msの発話前音声を含める', async () => {
-    vi.useFakeTimers();
-    try {
+    await withFakeTimers(async () => {
       await startCaptureAt(0);
 
       simulateChunkAt(0, 'header|');
@@ -85,14 +90,11 @@ describe('AudioCapture', () => {
       await expect(blob.text()).resolves.toBe(
         'header|pre-2750|pre-2000|pre-1500|pre-1000|pre-500|'
       );
-    } finally {
-      vi.useRealTimers();
-    }
+    });
   });
 
   it('markPreRollBoundary 以前の音声を次の発話前音声に含めない', async () => {
-    vi.useFakeTimers();
-    try {
+    await withFakeTimers(async () => {
       await startCaptureAt(0);
 
       simulateChunkAt(0, 'header|');
@@ -108,14 +110,11 @@ describe('AudioCapture', () => {
 
       expect(text).toContain('next-pre-roll|');
       expect(text).not.toContain('previous-comment|');
-    } finally {
-      vi.useRealTimers();
-    }
+    });
   });
 
   it('最初のメディアチャンクが境界以前なら次の録音に再利用しない', async () => {
-    vi.useFakeTimers();
-    try {
+    await withFakeTimers(async () => {
       await startCaptureAt(0);
 
       simulateChunkAt(0, 'header|');
@@ -132,14 +131,11 @@ describe('AudioCapture', () => {
       expect(text).toContain('header|');
       expect(text).toContain('next-pre-roll|');
       expect(text).not.toContain('first-comment|');
-    } finally {
-      vi.useRealTimers();
-    }
+    });
   });
 
   it('配送が遅れた境界以前のチャンクを発話前音声に含めない', async () => {
-    vi.useFakeTimers();
-    try {
+    await withFakeTimers(async () => {
       await startCaptureAt(0);
 
       simulateChunkAt(0, 'header|');
@@ -155,14 +151,11 @@ describe('AudioCapture', () => {
       const text = await blob.text();
 
       expect(text).toBe('header|next-pre-roll|');
-    } finally {
-      vi.useRealTimers();
-    }
+    });
   });
 
   it('ヘッダー待ち中の最初の非空Blobを録音中なら現在の録音に含める', async () => {
-    vi.useFakeTimers();
-    try {
+    await withFakeTimers(async () => {
       await startCaptureAt(0);
 
       vi.setSystemTime(100);
@@ -172,9 +165,7 @@ describe('AudioCapture', () => {
       const blob = capture.stopRecording();
 
       await expect(blob.text()).resolves.toBe('header-and-first-audio|next-audio|');
-    } finally {
-      vi.useRealTimers();
-    }
+    });
   });
 
   it('stop() でリソースが解放される', async () => {

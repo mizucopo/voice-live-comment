@@ -123,32 +123,35 @@ export class AudioCapture {
   }
 
   _handleDataAvailable(e) {
-    if (e.data.size <= 0) {
+    const data = e.data;
+    if (data.size <= 0) {
       return;
     }
 
     const deliveredAtMs = Date.now();
     const capturedFromMs = this._resolveChunkStartMs(e, deliveredAtMs);
     const chunk = {
-      data: e.data,
+      data,
       capturedFromMs
     };
 
     this._lastChunkCapturedToMs = deliveredAtMs;
 
     if (this._expectingHeaderChunk) {
-      this._headerChunk = e.data;
+      this._headerChunk = data;
       this._expectingHeaderChunk = false;
-      if (this._isRecording) {
-        this._recordingChunks.push(e.data);
-      }
+      this._appendRecordingChunk(data);
       return;
     }
 
     this._allChunks.push(chunk);
     this._trimBufferedChunks();
+    this._appendRecordingChunk(data);
+  }
+
+  _appendRecordingChunk(chunk) {
     if (this._isRecording) {
-      this._recordingChunks.push(e.data);
+      this._recordingChunks.push(chunk);
     }
   }
 
