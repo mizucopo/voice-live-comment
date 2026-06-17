@@ -23,21 +23,41 @@
 | YouTube Live | `youtube.com/live/*`、`youtube.com/watch*` |
 | YouTube Studio | `studio.youtube.com/*` |
 
-## インストール
+## インストール（通常利用）
 
-1. リポジトリをクローンまたはダウンロードします。
-   ```bash
-   git clone https://github.com/mizucopo/voice-live-comment.git
-   ```
-2. 依存パッケージをインストールしてビルドします。
-   ```bash
-   npm install
-   npm run build
-   ```
+通常利用では `npm install` や `npm run build` は不要です。
+
+1. [GitHub Releases](https://github.com/mizucopo/voice-live-comment/releases) から `voice-live-comment-vX.Y.Z.zip` をダウンロードします。
+2. zipファイルを展開します。
 3. Chromeで `chrome://extensions/` を開きます。
 4. 右上の「デベロッパーモード」をONにします。
 5. 「パッケージ化されていない拡張機能を読み込む」をクリックします。
-6. リポジトリのフォルダを選択します。
+6. 展開した `voice-live-comment-vX.Y.Z` フォルダを選択します。
+
+## 開発中の動作検証
+
+開発中にローカルの変更を動作検証する場合は、依存パッケージをインストールしてビルドします。
+
+```bash
+git clone https://github.com/mizucopo/voice-live-comment.git
+cd voice-live-comment
+npm install
+npm run build
+```
+
+ビルド後、Chromeで `chrome://extensions/` を開き、「パッケージ化されていない拡張機能を読み込む」からリポジトリのフォルダを選択します。
+
+`src/content.js` またはそこから読み込まれるファイルを変更した場合は、動作確認前に再度ビルドしてください。
+
+```bash
+npm run build
+```
+
+テストを実行する場合:
+
+```bash
+npm run test:run
+```
 
 ## 使い方
 
