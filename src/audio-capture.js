@@ -86,6 +86,7 @@ export class AudioCapture {
       startedAtMs - PRE_ROLL_MS,
       this._preRollBoundaryMs
     );
+    this._recordingPreRollStartMs = preRollStartMs;
     const preChunks = this._allChunks
       .filter(({ capturedFromMs }) => (
         capturedFromMs >= preRollStartMs && capturedFromMs <= startedAtMs
@@ -120,6 +121,7 @@ export class AudioCapture {
     this._firstChunkTimecode = null;
     this._lastChunkCapturedToMs = startedAtMs;
     this._expectingHeaderChunk = false;
+    this._recordingPreRollStartMs = 0;
   }
 
   _handleDataAvailable(e) {
@@ -138,21 +140,27 @@ export class AudioCapture {
     this._lastChunkCapturedToMs = deliveredAtMs;
 
     if (this._expectingHeaderChunk) {
-      this._headerChunk = data;
+      if (!this._isRecording) {
+        this._headerChunk = data;
+      }
       this._expectingHeaderChunk = false;
-      this._appendRecordingChunk(data);
+      this._appendRecordingChunk(chunk);
       return;
     }
 
     this._allChunks.push(chunk);
     this._trimBufferedChunks();
-    this._appendRecordingChunk(data);
+    this._appendRecordingChunk(chunk);
   }
 
   _appendRecordingChunk(chunk) {
-    if (this._isRecording) {
-      this._recordingChunks.push(chunk);
+    if (!this._isRecording) {
+      return;
     }
+    if (chunk.capturedFromMs < this._recordingPreRollStartMs) {
+      return;
+    }
+    this._recordingChunks.push(chunk.data);
   }
 
   _requestHeaderChunk() {

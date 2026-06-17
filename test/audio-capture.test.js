@@ -168,6 +168,49 @@ describe('AudioCapture', () => {
     });
   });
 
+  it('録音中に届いた最初の非空Blobを次の録音のヘッダーとして再利用しない', async () => {
+    await withFakeTimers(async () => {
+      await startCaptureAt(0);
+
+      simulateChunkAt(0, '', 0);
+      vi.setSystemTime(100);
+      capture.startRecording();
+      simulateChunkAt(150, 'first-comment|', 0);
+      capture.stopRecording();
+
+      vi.setSystemTime(1000);
+      capture.markPreRollBoundary();
+      simulateChunkAt(1250, 'next-pre-roll|', 1250);
+
+      vi.setSystemTime(1500);
+      capture.startRecording();
+      const blob = capture.stopRecording();
+      const text = await blob.text();
+
+      expect(text).toContain('next-pre-roll|');
+      expect(text).not.toContain('first-comment|');
+    });
+  });
+
+  it('録音中に遅延配送された境界以前のチャンクを現在の録音に追加しない', async () => {
+    await withFakeTimers(async () => {
+      await startCaptureAt(0);
+
+      simulateChunkAt(0, 'header|');
+      simulateChunkAt(500, 'previous-comment|', 250);
+      vi.setSystemTime(1000);
+      capture.markPreRollBoundary();
+
+      vi.setSystemTime(1200);
+      capture.startRecording();
+      simulateChunkAt(1300, 'delayed-previous-comment|', 750);
+      simulateChunkAt(1500, 'next-audio|', 1250);
+      const blob = capture.stopRecording();
+
+      await expect(blob.text()).resolves.toBe('header|next-audio|');
+    });
+  });
+
   it('stop() でリソースが解放される', async () => {
     await capture.start();
     await capture.stop();
