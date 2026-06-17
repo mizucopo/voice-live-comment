@@ -48,18 +48,9 @@ export class AudioCapture {
       this._scriptProcessor.connect(silentGain);
       silentGain.connect(this._audioContext.destination);
 
-      this._mediaRecorder = new MediaRecorder(this._stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
-
-      this._resetChunkState(Date.now());
-
-      this._mediaRecorder.ondataavailable = (e) => {
-        this._handleDataAvailable(e);
-      };
-
-      this._mediaRecorder.start(MEDIA_RECORDER_TIMESLICE_MS);
-      this._requestHeaderChunk();
+      const startedAtMs = Date.now();
+      this._resetChunkState(startedAtMs);
+      this._startMediaRecorderSegment(startedAtMs);
     } catch (e) {
       // 部分初期化済みリソースの解放
       try {
@@ -88,8 +79,8 @@ export class AudioCapture {
     );
     this._recordingPreRollStartMs = preRollStartMs;
     const preChunks = this._allChunks
-      .filter(({ capturedFromMs }) => (
-        capturedFromMs >= preRollStartMs && capturedFromMs <= startedAtMs
+      .filter(({ capturedFromMs, capturedToMs }) => (
+        capturedToMs > preRollStartMs && capturedFromMs <= startedAtMs
       ));
     for (const { data } of preChunks) {
       if (!chunks.includes(data)) {
@@ -101,7 +92,13 @@ export class AudioCapture {
   }
 
   markPreRollBoundary() {
-    this._preRollBoundaryMs = Date.now();
+    const boundaryMs = Date.now();
+    this._preRollBoundaryMs = boundaryMs;
+    this._allChunks = this._allChunks
+      .filter(({ capturedToMs }) => capturedToMs > boundaryMs);
+    if (this._mediaRecorder && this._mediaRecorder.state !== 'inactive') {
+      this._startMediaRecorderSegment(boundaryMs);
+    }
   }
 
   stopRecording() {
@@ -122,9 +119,14 @@ export class AudioCapture {
     this._lastChunkCapturedToMs = startedAtMs;
     this._expectingHeaderChunk = false;
     this._recordingPreRollStartMs = 0;
+    this._segmentId = 0;
   }
 
-  _handleDataAvailable(e) {
+  _handleDataAvailable(e, segmentId = this._segmentId) {
+    if (segmentId !== this._segmentId) {
+      return;
+    }
+
     const data = e.data;
     if (data.size <= 0) {
       return;
@@ -132,12 +134,14 @@ export class AudioCapture {
 
     const deliveredAtMs = Date.now();
     const capturedFromMs = this._resolveChunkStartMs(e, deliveredAtMs);
+    const capturedToMs = this._resolveChunkEndMs(capturedFromMs);
     const chunk = {
       data,
-      capturedFromMs
+      capturedFromMs,
+      capturedToMs
     };
 
-    this._lastChunkCapturedToMs = deliveredAtMs;
+    this._lastChunkCapturedToMs = capturedToMs;
 
     if (this._expectingHeaderChunk) {
       this._expectingHeaderChunk = false;
@@ -158,10 +162,35 @@ export class AudioCapture {
     if (!this._isRecording) {
       return;
     }
-    if (chunk.capturedFromMs < this._recordingPreRollStartMs) {
+    if (chunk.capturedToMs <= this._recordingPreRollStartMs) {
       return;
     }
     this._recordingChunks.push(chunk.data);
+  }
+
+  _startMediaRecorderSegment(startedAtMs) {
+    const previousRecorder = this._mediaRecorder;
+    this._segmentId += 1;
+
+    this._headerChunk = null;
+    this._expectingHeaderChunk = false;
+    this._mediaRecorderStartedAtMs = startedAtMs;
+    this._firstChunkTimecode = null;
+    this._lastChunkCapturedToMs = startedAtMs;
+
+    if (previousRecorder && previousRecorder.state !== 'inactive') {
+      previousRecorder.stop();
+    }
+
+    this._mediaRecorder = new MediaRecorder(this._stream, {
+      mimeType: 'audio/webm;codecs=opus'
+    });
+    const segmentId = this._segmentId;
+    this._mediaRecorder.ondataavailable = (e) => {
+      this._handleDataAvailable(e, segmentId);
+    };
+    this._mediaRecorder.start(MEDIA_RECORDER_TIMESLICE_MS);
+    this._requestHeaderChunk();
   }
 
   _requestHeaderChunk() {
@@ -185,6 +214,10 @@ export class AudioCapture {
     }
 
     return this._lastChunkCapturedToMs || deliveredAtMs;
+  }
+
+  _resolveChunkEndMs(capturedFromMs) {
+    return capturedFromMs + MEDIA_RECORDER_TIMESLICE_MS;
   }
 
   _trimBufferedChunks() {
