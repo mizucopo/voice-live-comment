@@ -91,9 +91,9 @@ export class AudioCapture {
       .filter(({ capturedFromMs }) => (
         capturedFromMs >= preRollStartMs && capturedFromMs <= startedAtMs
       ));
-    for (const { data: chunk } of preChunks) {
-      if (!chunks.includes(chunk)) {
-        chunks.push(chunk);
+    for (const { data } of preChunks) {
+      if (!chunks.includes(data)) {
+        chunks.push(data);
       }
     }
     this._recordingChunks = chunks;
@@ -140,11 +140,12 @@ export class AudioCapture {
     this._lastChunkCapturedToMs = deliveredAtMs;
 
     if (this._expectingHeaderChunk) {
-      if (!this._isRecording) {
+      this._expectingHeaderChunk = false;
+      if (this._isRecording) {
+        this._appendRecordingChunk(chunk);
+      } else {
         this._headerChunk = data;
       }
-      this._expectingHeaderChunk = false;
-      this._appendRecordingChunk(chunk);
       return;
     }
 
