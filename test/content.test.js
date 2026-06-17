@@ -353,5 +353,47 @@ describe('content.js', () => {
       );
       expect(errorCalls).toHaveLength(0);
     });
+
+    it('Grok Providerで開始する', async () => {
+      const grokConstructor = vi.fn();
+      vi.doMock('../src/stt/grok-stt-provider.js', () => {
+        return {
+          GrokSttProvider: class {
+            constructor(apiKey, language, boostPhrases) {
+              grokConstructor(apiKey, language, boostPhrases);
+              this._startCallbacks = [];
+              this._resultCallbacks = [];
+              this._errorCallbacks = [];
+            }
+            onStart(cb) { this._startCallbacks.push(cb); }
+            onResult(cb) { this._resultCallbacks.push(cb); }
+            onError(cb) { this._errorCallbacks.push(cb); }
+            async start() { this._startCallbacks.forEach(cb => cb()); }
+            async stop() {}
+            async sendAudio() {}
+          }
+        };
+      });
+
+      vi.resetModules();
+      chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'grok',
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: false,
+        boostPhrases: ['配信名'],
+        dictionary: '',
+        googleApiKey: '',
+        xaiApiKey: 'xai-key'
+      });
+      await import('../src/content.js');
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+      listener({ type: 'TOGGLE_RECOGNITION' }, {}, vi.fn());
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+      expect(grokConstructor).toHaveBeenCalledWith('xai-key', 'ja-JP', ['配信名']);
+      vi.doUnmock('../src/stt/grok-stt-provider.js');
+    });
   });
 });

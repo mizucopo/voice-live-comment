@@ -104,6 +104,18 @@ describe('VoiceCommentSession', () => {
     expect(session.snapshot()).toEqual({ isActive: false });
   });
 
+  it('Grokプロバイダー選択時に外部 pipeline を初期化する', async () => {
+    const pipeline = { stop: vi.fn().mockResolvedValue(undefined) };
+    dependencies.loadSettings.mockResolvedValue({ sttProvider: 'grok' });
+    dependencies.createExternalPipeline.mockResolvedValue(pipeline);
+    const session = new VoiceCommentSession(dependencies);
+
+    session.toggle();
+    await flushAsyncWork();
+
+    expect(dependencies.createExternalPipeline).toHaveBeenCalledWith(provider);
+  });
+
   it('認識結果を投稿 module に渡す', async () => {
     const session = new VoiceCommentSession(dependencies);
 

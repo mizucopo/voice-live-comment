@@ -12,8 +12,10 @@ describe('options.js', () => {
       <select id="sttProvider">
         <option value="browser">ブラウザ音声認識</option>
         <option value="google">Google Cloud STT</option>
+        <option value="grok">Grok STT</option>
       </select>
       <input type="password" id="googleApiKey" />
+      <input type="password" id="xaiApiKey" />
       <div id="browserSettings">
         <input type="checkbox" id="autoPost" />
         <input type="text" id="language" />
@@ -22,6 +24,7 @@ describe('options.js', () => {
         <textarea id="dictionary"></textarea>
       </div>
       <div id="googleSettings" style="display:none"></div>
+      <div id="grokSettings" style="display:none"></div>
       <div id="status"></div>
       <button id="save">保存</button>
     `;
@@ -46,7 +49,8 @@ describe('options.js', () => {
         useLocalModel: false,
         boostPhrases: [],
         dictionary: '',
-        googleApiKey: ''
+        googleApiKey: '',
+        xaiApiKey: ''
       });
 
       await loadSettings();
@@ -64,7 +68,8 @@ describe('options.js', () => {
         useLocalModel: true,
         boostPhrases: ['配信', 'コメント'],
         dictionary: 'とーきょー→東京',
-        googleApiKey: ''
+        googleApiKey: '',
+        xaiApiKey: ''
       });
 
       await loadSettings();
@@ -92,7 +97,8 @@ describe('options.js', () => {
         useLocalModel: false,
         boostPhrases: [],
         dictionary: '',
-        googleApiKey: ''
+        googleApiKey: '',
+        xaiApiKey: ''
       });
     });
 
@@ -110,7 +116,8 @@ describe('options.js', () => {
         useLocalModel: false,
         boostPhrases: [],
         dictionary: '',
-        googleApiKey: ''
+        googleApiKey: '',
+        xaiApiKey: ''
       });
     });
 
@@ -156,7 +163,8 @@ describe('options.js', () => {
         useLocalModel: true,
         boostPhrases: ['配信', 'コメント'],
         dictionary: 'とーきょー→東京',
-        googleApiKey: ''
+        googleApiKey: '',
+        xaiApiKey: ''
       });
     });
 
@@ -180,14 +188,17 @@ describe('options.js', () => {
         <select id="sttProvider">
           <option value="browser">ブラウザ音声認識</option>
           <option value="google">Google Cloud STT</option>
+          <option value="grok">Grok STT</option>
         </select>
         <input type="password" id="googleApiKey" />
+        <input type="password" id="xaiApiKey" />
         <div id="browserSettings">
           <input type="checkbox" id="useLocalModel" />
           <textarea id="boostPhrases"></textarea>
           <textarea id="dictionary"></textarea>
         </div>
         <div id="googleSettings" style="display:none"></div>
+        <div id="grokSettings" style="display:none"></div>
         <input type="checkbox" id="autoPost" />
         <input type="text" id="language" value="ja-JP" />
         <div id="status"></div>
@@ -209,7 +220,8 @@ describe('options.js', () => {
         useLocalModel: false,
         boostPhrases: [],
         dictionary: '',
-        googleApiKey: 'test-key'
+        googleApiKey: 'test-key',
+        xaiApiKey: ''
       });
 
       await loadSettings();
@@ -226,7 +238,8 @@ describe('options.js', () => {
         useLocalModel: false,
         boostPhrases: [],
         dictionary: '',
-        googleApiKey: ''
+        googleApiKey: '',
+        xaiApiKey: ''
       });
 
       await loadSettings();
@@ -243,7 +256,8 @@ describe('options.js', () => {
         useLocalModel: false,
         boostPhrases: [],
         dictionary: '',
-        googleApiKey: 'test-key'
+        googleApiKey: 'test-key',
+        xaiApiKey: ''
       });
 
       await loadSettings();
@@ -260,7 +274,8 @@ describe('options.js', () => {
         useLocalModel: false,
         boostPhrases: [],
         dictionary: '',
-        googleApiKey: ''
+        googleApiKey: '',
+        xaiApiKey: ''
       });
 
       await loadSettings();
@@ -268,6 +283,48 @@ describe('options.js', () => {
       expect(document.getElementById('sttProvider').value).toBe('browser');
       expect(document.getElementById('browserSettings').style.display).not.toBe('none');
       expect(document.getElementById('googleSettings').style.display).toBe('none');
+    });
+
+    it('Grok選択時にGrok設定が表示される', async () => {
+      chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'grok',
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: false,
+        boostPhrases: [],
+        dictionary: '',
+        googleApiKey: '',
+        xaiApiKey: 'xai-key'
+      });
+
+      await loadSettings();
+
+      expect(document.getElementById('sttProvider').value).toBe('grok');
+      expect(document.getElementById('xaiApiKey').value).toBe('xai-key');
+      expect(document.getElementById('browserSettings').style.display).toBe('none');
+      expect(document.getElementById('googleSettings').style.display).toBe('none');
+      expect(document.getElementById('grokSettings').style.display).not.toBe('none');
+    });
+
+    it('Grok設定を保存する', async () => {
+      document.getElementById('sttProvider').value = 'grok';
+      document.getElementById('xaiApiKey').value = 'xai-key';
+      document.getElementById('autoPost').checked = true;
+      document.getElementById('language').value = 'ja-JP';
+      chrome.tabs.query.mockResolvedValue([]);
+
+      const result = await saveSettings();
+
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sttProvider: 'grok',
+          xaiApiKey: 'xai-key'
+        })
+      );
+      expect(result).toEqual(expect.objectContaining({
+        sttProvider: 'grok',
+        xaiApiKey: 'xai-key'
+      }));
     });
   });
 });

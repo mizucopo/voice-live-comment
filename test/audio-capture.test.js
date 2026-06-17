@@ -35,6 +35,14 @@ describe('AudioCapture', () => {
     return previousRecorder;
   }
 
+  function processPcmFrame(samples) {
+    capture._scriptProcessor.onaudioprocess({
+      inputBuffer: {
+        getChannelData: () => Float32Array.from(samples)
+      }
+    });
+  }
+
   it('start() でgetUserMediaとMediaRecorderが起動する', async () => {
     await capture.start();
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({ audio: true });
@@ -77,6 +85,22 @@ describe('AudioCapture', () => {
 
     expect(blob).toBeInstanceOf(Blob);
     expect(blob.type).toBe('audio/webm;codecs=opus');
+  });
+
+  it('PCM録音形式では16k PCM Blobを取得できる', async () => {
+    capture = new AudioCapture({ recordingFormat: 'pcm16' });
+    await capture.start();
+    capture.audioContext.sampleRate = 16000;
+
+    capture.startRecording();
+    processPcmFrame([1, -1, 0.5]);
+    const blob = capture.stopRecording();
+
+    expect(blob.type).toBe('audio/l16;rate=16000');
+    const view = new DataView(await blob.arrayBuffer());
+    expect(view.getInt16(0, true)).toBe(32767);
+    expect(view.getInt16(2, true)).toBe(-32768);
+    expect(view.getInt16(4, true)).toBe(16383);
   });
 
   it('startRecording は直近3000msの発話前音声を含める', async () => {

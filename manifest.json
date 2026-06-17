@@ -11,7 +11,8 @@
   ],
   "host_permissions": [
     "*://www.youtube.com/*",
-    "*://studio.youtube.com/*"
+    "*://studio.youtube.com/*",
+    "https://api.x.ai/*"
   ],
   "background": {
     "service_worker": "src/background.js",

@@ -1,4 +1,5 @@
 import { isTargetPage } from './utils/url.js';
+import { recognizeGrokSpeech } from './stt/grok-stt-service.js';
 
 // アイコンクリック時の処理
 chrome.action.onClicked.addListener(async (tab) => {
@@ -70,5 +71,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.error('[Voice Live Comment] エラー:', message.message);
     setBadgeError();
     showNotification('エラー', message.message);
+  } else if (message.type === 'GROK_STT_RECOGNIZE') {
+    recognizeGrokSpeech(message)
+      .then((text) => sendResponse({ ok: true, text }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
   }
 });

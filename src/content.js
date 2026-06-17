@@ -1,10 +1,11 @@
 import { trimText, parseDictionaryRules, applyDictionary } from './utils/text.js';
 import { BrowserSttProvider } from './stt/browser-stt-provider.js';
 import { GoogleSttProvider } from './stt/google-stt-provider.js';
+import { GrokSttProvider } from './stt/grok-stt-provider.js';
 import { createExternalPipeline } from './external-pipeline.js';
 import { VoiceCommentSession } from './voice-comment-session.js';
 
-const SUPPORTED_STT_PROVIDERS = new Set(['browser', 'google']);
+const SUPPORTED_STT_PROVIDERS = new Set(['browser', 'google', 'grok']);
 
 function normalizeSttProvider(provider) {
   return SUPPORTED_STT_PROVIDERS.has(provider) ? provider : 'browser';
@@ -17,7 +18,8 @@ let settings = {
   useLocalModel: false,
   boostPhrases: [],
   dictionary: '',
-  googleApiKey: ''
+  googleApiKey: '',
+  xaiApiKey: ''
 };
 let parsedRules = [];
 
@@ -59,7 +61,8 @@ async function loadSettings() {
     useLocalModel: false,
     boostPhrases: [],
     dictionary: '',
-    googleApiKey: ''
+    googleApiKey: '',
+    xaiApiKey: ''
   });
   settings = { ...result, sttProvider: normalizeSttProvider(result.sttProvider) };
   parsedRules = parseDictionaryRules(settings.dictionary);
@@ -148,6 +151,12 @@ function createProvider(providerSettings = settings) {
   switch (providerSettings.sttProvider) {
     case 'google':
       return new GoogleSttProvider(providerSettings.googleApiKey, providerSettings.language);
+    case 'grok':
+      return new GrokSttProvider(
+        providerSettings.xaiApiKey,
+        providerSettings.language,
+        providerSettings.boostPhrases
+      );
     case 'browser':
     default:
       return new BrowserSttProvider({
