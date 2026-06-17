@@ -61,7 +61,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          package_dir="${RUNNER_TEMP}/voice-live-comment-v${RELEASE_VERSION}"
+          package_name="voice-live-comment-v${RELEASE_VERSION}"
+          package_dir="${RUNNER_TEMP}/${package_name}"
           mkdir -p "$package_dir"
 
           cp manifest.json options.html "$package_dir/"
@@ -74,7 +75,7 @@ jobs:
           test -f "$package_dir/src/options.js"
           test -f "$package_dir/icons/icon128.png"
 
-          (cd "$RUNNER_TEMP" && zip -r "${GITHUB_WORKSPACE}/${ZIP_NAME}" "voice-live-comment-v${RELEASE_VERSION}" -x "*.DS_Store")
+          (cd "$RUNNER_TEMP" && zip -r "${GITHUB_WORKSPACE}/${ZIP_NAME}" "$package_name" -x "*.DS_Store")
 
       - name: Create GitHub Release
         env:
