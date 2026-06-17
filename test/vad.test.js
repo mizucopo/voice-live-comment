@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Vad } from '../src/vad.js';
 
 describe('Vad', () => {
@@ -27,7 +27,7 @@ describe('Vad', () => {
     expect(onSpeechStart).toHaveBeenCalled();
   });
 
-  it('閾値以下でspeechEndイベントが発火する', async () => {
+  it('閾値以下が3000ms続くとspeechEndイベントが発火する', async () => {
     vad = new Vad();
     await vad.init();
 
