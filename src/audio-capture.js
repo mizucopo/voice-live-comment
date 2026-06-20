@@ -3,7 +3,7 @@ const PRE_ROLL_MS = 3000;
 const MAX_PRE_ROLL_CHUNKS = Math.ceil(PRE_ROLL_MS / MEDIA_RECORDER_TIMESLICE_MS);
 const PCM_SAMPLE_RATE = 16000;
 // Grokに送るraw PCMが最初の発話サンプルから始まらないようにする。
-const PCM_LEADING_SILENCE_MS = 500;
+const PCM_LEADING_SILENCE_MS = 1000;
 const PCM_LEADING_SILENCE_SAMPLES = Math.round((PCM_SAMPLE_RATE * PCM_LEADING_SILENCE_MS) / 1000);
 
 export class AudioCapture {
