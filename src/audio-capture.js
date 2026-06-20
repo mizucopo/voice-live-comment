@@ -2,7 +2,7 @@ const MEDIA_RECORDER_TIMESLICE_MS = 250;
 const PRE_ROLL_MS = 3000;
 const MAX_PRE_ROLL_CHUNKS = Math.ceil(PRE_ROLL_MS / MEDIA_RECORDER_TIMESLICE_MS);
 const PCM_SAMPLE_RATE = 16000;
-// Raw PCM sent to Grok is more reliable when it does not begin at the first speech sample.
+// Grokに送るraw PCMが最初の発話サンプルから始まらないようにする。
 const PCM_LEADING_SILENCE_MS = 500;
 const PCM_LEADING_SILENCE_SAMPLES = Math.round((PCM_SAMPLE_RATE * PCM_LEADING_SILENCE_MS) / 1000);
 

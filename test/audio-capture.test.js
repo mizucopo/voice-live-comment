@@ -45,6 +45,11 @@ describe('AudioCapture', () => {
 
   const pcmLeadingSilenceBytes = 8000 * 2;
 
+  function expectLeadingPcmSilence(view) {
+    expect(view.getInt16(0, true)).toBe(0);
+    expect(view.getInt16(pcmLeadingSilenceBytes - 2, true)).toBe(0);
+  }
+
   it('start() でgetUserMediaとMediaRecorderが起動する', async () => {
     await capture.start();
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({ audio: true });
@@ -100,8 +105,7 @@ describe('AudioCapture', () => {
 
     expect(blob.type).toBe('audio/l16;rate=16000');
     const view = new DataView(await blob.arrayBuffer());
-    expect(view.getInt16(0, true)).toBe(0);
-    expect(view.getInt16(pcmLeadingSilenceBytes - 2, true)).toBe(0);
+    expectLeadingPcmSilence(view);
     expect(view.getInt16(pcmLeadingSilenceBytes, true)).toBe(32767);
     expect(view.getInt16(pcmLeadingSilenceBytes + 2, true)).toBe(-32768);
     expect(view.getInt16(pcmLeadingSilenceBytes + 4, true)).toBe(16383);
@@ -118,8 +122,7 @@ describe('AudioCapture', () => {
 
     const view = new DataView(await blob.arrayBuffer());
     expect(view.byteLength).toBe(pcmLeadingSilenceBytes + 6);
-    expect(view.getInt16(0, true)).toBe(0);
-    expect(view.getInt16(pcmLeadingSilenceBytes - 2, true)).toBe(0);
+    expectLeadingPcmSilence(view);
     expect(view.getInt16(pcmLeadingSilenceBytes, true)).toBeGreaterThan(0);
   });
 
