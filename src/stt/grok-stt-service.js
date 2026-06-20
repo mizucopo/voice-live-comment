@@ -5,10 +5,68 @@ const SUPPORTED_FORMAT_LANGUAGES = new Set([
   'id', 'it', 'ja', 'ko', 'mk', 'ms', 'nl', 'pl', 'pt', 'ro',
   'ru', 'sv', 'th', 'tr', 'vi'
 ]);
+const DETECTED_LANGUAGE_CODES = new Map([
+  ['arabic', 'ar'],
+  ['czech', 'cs'],
+  ['danish', 'da'],
+  ['dutch', 'nl'],
+  ['english', 'en'],
+  ['farsi', 'fa'],
+  ['filipino', 'fil'],
+  ['french', 'fr'],
+  ['german', 'de'],
+  ['hindi', 'hi'],
+  ['indonesian', 'id'],
+  ['italian', 'it'],
+  ['japanese', 'ja'],
+  ['korean', 'ko'],
+  ['macedonian', 'mk'],
+  ['malay', 'ms'],
+  ['mandarin', 'zh'],
+  ['mandarin chinese', 'zh'],
+  ['chinese', 'zh'],
+  ['persian', 'fa'],
+  ['polish', 'pl'],
+  ['portuguese', 'pt'],
+  ['romanian', 'ro'],
+  ['russian', 'ru'],
+  ['spanish', 'es'],
+  ['swedish', 'sv'],
+  ['thai', 'th'],
+  ['turkish', 'tr'],
+  ['vietnamese', 'vi']
+]);
+
+function normalizeLanguageCode(language) {
+  return String(language || '').trim().split('-')[0].toLowerCase();
+}
 
 function normalizeGrokLanguage(language) {
-  const code = String(language || '').split('-')[0].toLowerCase();
+  const code = normalizeLanguageCode(language);
   return SUPPORTED_FORMAT_LANGUAGES.has(code) ? code : '';
+}
+
+function normalizeDetectedLanguage(language) {
+  const normalized = String(language || '').trim().toLowerCase();
+  if (!normalized) return '';
+  const code = normalized.split('-')[0];
+  if (/^[a-z]{2,3}$/.test(code)) return code;
+  return DETECTED_LANGUAGE_CODES.get(normalized) || '';
+}
+
+function isShortTranscript(text, words = []) {
+  const tokens = String(text || '').normalize('NFKC').match(/[\p{Letter}\p{Number}]+/gu) || [];
+  const lexicalLength = tokens.join('').length;
+  if (lexicalLength <= 4) return true;
+  if (tokens.length <= 1 && lexicalLength <= 12) return true;
+  return Array.isArray(words) && words.length > 0 && words.length <= 1 && lexicalLength <= 12;
+}
+
+function shouldSuppressShortForeignTranscript({ text, requestedLanguage, detectedLanguage, words }) {
+  const requested = normalizeLanguageCode(requestedLanguage);
+  const detected = normalizeDetectedLanguage(detectedLanguage);
+  if (!text || !requested || !detected || requested === detected) return false;
+  return isShortTranscript(text, words);
 }
 
 function delay(ms) {
@@ -69,7 +127,16 @@ export async function recognizeGrokSpeech(message) {
       }
 
       const data = await response.json();
-      return data.text || '';
+      const text = data.text || '';
+      if (shouldSuppressShortForeignTranscript({
+        text,
+        requestedLanguage: message.language,
+        detectedLanguage: data.language,
+        words: data.words
+      })) {
+        return '';
+      }
+      return text;
     } catch (error) {
       lastError = error;
       if (error.message.includes('429') && attempt < GROK_STT_MAX_RETRIES) {
