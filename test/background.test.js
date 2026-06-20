@@ -192,5 +192,51 @@ describe('background.js', () => {
         text: '東京！'
       }));
     });
+
+    it('GROK_STT_RECOGNIZEは検出言語が空でも短い中国語結果を日本語設定で返さない', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          text: '你好',
+          language: '',
+          words: [{ text: '你好', start: 0, end: 0.4 }]
+        })
+      });
+      await importBackground();
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = vi.fn();
+
+      const result = listener(createGrokMessage({ language: 'ja-JP' }), {}, sendResponse);
+
+      expect(result).toBe(true);
+      await vi.waitFor(() => expect(sendResponse).toHaveBeenCalledWith({
+        ok: true,
+        text: ''
+      }));
+    });
+
+    it('GROK_STT_RECOGNIZEは検出言語が空でも短い日本語かな結果を中国語設定で返さない', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          text: 'ああ！',
+          language: '',
+          words: [{ text: 'ああ！', start: 0, end: 0.4 }]
+        })
+      });
+      await importBackground();
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = vi.fn();
+
+      const result = listener(createGrokMessage({ language: 'zh-CN' }), {}, sendResponse);
+
+      expect(result).toBe(true);
+      await vi.waitFor(() => expect(sendResponse).toHaveBeenCalledWith({
+        ok: true,
+        text: ''
+      }));
+    });
   });
 });

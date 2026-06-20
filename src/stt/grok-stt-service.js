@@ -36,8 +36,14 @@ const DETECTED_LANGUAGE_CODES = new Map([
   ['turkish', 'tr'],
   ['vietnamese', 'vi']
 ]);
-const SHORT_FOREIGN_TRANSCRIPT_PATTERNS = new Map([
-  ['ja', /^[啊呀哦呃嗯哎诶唉喂嘛]+[!?.。、，,\s]*$/u]
+const EMPTY_LANGUAGE_FOREIGN_TRANSCRIPT_PATTERNS = new Map([
+  ['ja', [
+    /^[啊呀哦呃嗯哎诶唉喂嘛]+[!?.。、，,\s]*$/u,
+    /^(?:你好|您好|谢谢|謝謝|谢谢你|謝謝你|再见|再見)[!?.。、，,\s]*$/u
+  ]],
+  ['zh', [
+    /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u
+  ]]
 ]);
 
 function normalizeLanguageCode(language) {
@@ -75,8 +81,9 @@ function shouldSuppressShortForeignTranscript({ text, requestedLanguage, detecte
     return requested !== detected;
   }
 
-  const pattern = SHORT_FOREIGN_TRANSCRIPT_PATTERNS.get(requested);
-  return Boolean(pattern && pattern.test(String(text).normalize('NFKC')));
+  const patterns = EMPTY_LANGUAGE_FOREIGN_TRANSCRIPT_PATTERNS.get(requested) || [];
+  const normalizedText = String(text).normalize('NFKC');
+  return patterns.some((pattern) => pattern.test(normalizedText));
 }
 
 function delay(ms) {
