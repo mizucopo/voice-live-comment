@@ -1,6 +1,6 @@
 {
   "name": "voice-live-comment",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "音声認識でYouTube Liveにコメント投稿",
   "type": "module",
   "scripts": {
