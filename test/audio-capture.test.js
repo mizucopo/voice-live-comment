@@ -126,6 +126,26 @@ describe('AudioCapture', () => {
     expect(view.getInt16(pcmLeadingSilenceBytes, true)).toBeGreaterThan(0);
   });
 
+  it('PCM録音形式は長時間経過後も発話冒頭を録音に含める', async () => {
+    await withFakeTimers(async () => {
+      capture = new AudioCapture({ recordingFormat: 'pcm16' });
+      await startCaptureAt(0);
+      capture.audioContext.sampleRate = 16000;
+
+      vi.setSystemTime(10_000);
+      processPcmFrame([0.7]);
+      capture.startRecording();
+      processPcmFrame([0.8]);
+      const blob = capture.stopRecording();
+
+      const view = new DataView(await blob.arrayBuffer());
+      expectLeadingPcmSilence(view);
+      expect(view.byteLength).toBe(pcmLeadingSilenceBytes + 4);
+      expect(view.getInt16(pcmLeadingSilenceBytes, true)).toBeGreaterThan(0);
+      expect(view.getInt16(pcmLeadingSilenceBytes + 2, true)).toBeGreaterThan(0);
+    });
+  });
+
   it('startRecording は直近3000msの発話前音声を含める', async () => {
     await withFakeTimers(async () => {
       await startCaptureAt(0);

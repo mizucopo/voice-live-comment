@@ -161,8 +161,11 @@ export class AudioCapture {
   _handlePcmData(frame) {
     const data = new Float32Array(frame);
     const durationMs = (data.length / 16000) * 1000;
-    const capturedFromMs = this._lastPcmCapturedToMs;
-    const capturedToMs = capturedFromMs + durationMs;
+    const capturedToMs = Math.max(
+      this._lastPcmCapturedToMs + durationMs,
+      Date.now()
+    );
+    const capturedFromMs = capturedToMs - durationMs;
     const chunk = { data, capturedFromMs, capturedToMs };
 
     this._lastPcmCapturedToMs = capturedToMs;
