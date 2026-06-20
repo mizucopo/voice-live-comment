@@ -43,6 +43,13 @@ describe('AudioCapture', () => {
     });
   }
 
+  const pcmLeadingSilenceBytes = 8000 * 2;
+
+  function expectLeadingPcmSilence(view) {
+    expect(view.getInt16(0, true)).toBe(0);
+    expect(view.getInt16(pcmLeadingSilenceBytes - 2, true)).toBe(0);
+  }
+
   it('start() でgetUserMediaとMediaRecorderが起動する', async () => {
     await capture.start();
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({ audio: true });
@@ -98,9 +105,46 @@ describe('AudioCapture', () => {
 
     expect(blob.type).toBe('audio/l16;rate=16000');
     const view = new DataView(await blob.arrayBuffer());
-    expect(view.getInt16(0, true)).toBe(32767);
-    expect(view.getInt16(2, true)).toBe(-32768);
-    expect(view.getInt16(4, true)).toBe(16383);
+    expectLeadingPcmSilence(view);
+    expect(view.getInt16(pcmLeadingSilenceBytes, true)).toBe(32767);
+    expect(view.getInt16(pcmLeadingSilenceBytes + 2, true)).toBe(-32768);
+    expect(view.getInt16(pcmLeadingSilenceBytes + 4, true)).toBe(16383);
+  });
+
+  it('PCM録音形式は即座に話し始めても発話冒頭の前に無音を含める', async () => {
+    capture = new AudioCapture({ recordingFormat: 'pcm16' });
+    await capture.start();
+    capture.audioContext.sampleRate = 16000;
+
+    capture.startRecording();
+    processPcmFrame([0.7, 0.7, 0.7]);
+    const blob = capture.stopRecording();
+
+    const view = new DataView(await blob.arrayBuffer());
+    expect(view.byteLength).toBe(pcmLeadingSilenceBytes + 6);
+    expectLeadingPcmSilence(view);
+    expect(view.getInt16(pcmLeadingSilenceBytes, true)).toBeGreaterThan(0);
+  });
+
+  it('PCM録音形式は長時間経過後も発話冒頭を録音に含める', async () => {
+    await withFakeTimers(async () => {
+      capture = new AudioCapture({ recordingFormat: 'pcm16' });
+      await startCaptureAt(0);
+      capture.audioContext.sampleRate = 16000;
+
+      const longRunningMs = 60 * 60 * 1000;
+      vi.setSystemTime(longRunningMs);
+      processPcmFrame([0.7]);
+      capture.startRecording();
+      processPcmFrame([0.8]);
+      const blob = capture.stopRecording();
+
+      const view = new DataView(await blob.arrayBuffer());
+      expectLeadingPcmSilence(view);
+      expect(view.byteLength).toBe(pcmLeadingSilenceBytes + 4);
+      expect(view.getInt16(pcmLeadingSilenceBytes, true)).toBeGreaterThan(0);
+      expect(view.getInt16(pcmLeadingSilenceBytes + 2, true)).toBeGreaterThan(0);
+    });
   });
 
   it('startRecording は直近3000msの発話前音声を含める', async () => {

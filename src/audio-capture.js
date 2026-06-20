@@ -1,6 +1,10 @@
 const MEDIA_RECORDER_TIMESLICE_MS = 250;
 const PRE_ROLL_MS = 3000;
 const MAX_PRE_ROLL_CHUNKS = Math.ceil(PRE_ROLL_MS / MEDIA_RECORDER_TIMESLICE_MS);
+const PCM_SAMPLE_RATE = 16000;
+// Grokに送るraw PCMが最初の発話サンプルから始まらないようにする。
+const PCM_LEADING_SILENCE_MS = 500;
+const PCM_LEADING_SILENCE_SAMPLES = Math.round((PCM_SAMPLE_RATE * PCM_LEADING_SILENCE_MS) / 1000);
 
 export class AudioCapture {
   constructor({ recordingFormat = 'webm' } = {}) {
@@ -93,13 +97,19 @@ export class AudioCapture {
         chunks.push(data);
       }
     }
-    this._recordingChunks = chunks;
-    this._recordingPcmChunks = this._recordingFormat === 'pcm16'
+    const prePcmChunks = this._recordingFormat === 'pcm16'
       ? this._allPcmChunks
         .filter((chunk) => (
           this._chunkOverlapsRecordingStart(chunk) && chunk.capturedFromMs <= startedAtMs
         ))
         .map(({ data }) => data)
+      : [];
+    this._recordingChunks = chunks;
+    this._recordingPcmChunks = this._recordingFormat === 'pcm16'
+      ? [
+          new Float32Array(PCM_LEADING_SILENCE_SAMPLES),
+          ...prePcmChunks
+        ]
       : [];
     this._isRecording = true;
   }
@@ -150,9 +160,12 @@ export class AudioCapture {
 
   _handlePcmData(frame) {
     const data = new Float32Array(frame);
-    const durationMs = (data.length / 16000) * 1000;
-    const capturedFromMs = this._lastPcmCapturedToMs;
-    const capturedToMs = capturedFromMs + durationMs;
+    const durationMs = (data.length / PCM_SAMPLE_RATE) * 1000;
+    const capturedToMs = Math.max(
+      this._lastPcmCapturedToMs + durationMs,
+      Date.now()
+    );
+    const capturedFromMs = capturedToMs - durationMs;
     const chunk = { data, capturedFromMs, capturedToMs };
 
     this._lastPcmCapturedToMs = capturedToMs;
