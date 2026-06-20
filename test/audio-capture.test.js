@@ -43,7 +43,7 @@ describe('AudioCapture', () => {
     });
   }
 
-  const pcmLeadingSilenceBytes = 8000 * 2;
+  const pcmLeadingSilenceBytes = 16000 * 2;
 
   function expectLeadingPcmSilence(view) {
     expect(view.getInt16(0, true)).toBe(0);
