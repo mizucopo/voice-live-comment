@@ -160,7 +160,7 @@ export class AudioCapture {
 
   _handlePcmData(frame) {
     const data = new Float32Array(frame);
-    const durationMs = (data.length / 16000) * 1000;
+    const durationMs = (data.length / PCM_SAMPLE_RATE) * 1000;
     const capturedToMs = Math.max(
       this._lastPcmCapturedToMs + durationMs,
       Date.now()

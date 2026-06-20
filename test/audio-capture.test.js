@@ -132,7 +132,8 @@ describe('AudioCapture', () => {
       await startCaptureAt(0);
       capture.audioContext.sampleRate = 16000;
 
-      vi.setSystemTime(10_000);
+      const longRunningMs = 60 * 60 * 1000;
+      vi.setSystemTime(longRunningMs);
       processPcmFrame([0.7]);
       capture.startRecording();
       processPcmFrame([0.8]);
