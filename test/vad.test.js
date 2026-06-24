@@ -40,6 +40,33 @@ describe('Vad', () => {
     expect(onSpeechStart).toHaveBeenCalled();
   });
 
+  it('短い非コメント音ではspeechStartが発火しない', async () => {
+    vad = new Vad();
+    await vad.init();
+
+    const onSpeechStart = vi.fn();
+    vad.onSpeechStart(onSpeechStart);
+    const nonCommentSoundFrame = new Float32Array(480).fill(0.5);
+
+    for (let i = 0; i < 6; i++) {
+      vad.processFrame(nonCommentSoundFrame);
+    }
+
+    expect(onSpeechStart).not.toHaveBeenCalled();
+  });
+
+  it('短文コメントは認識対象継続時間を満たせばspeechStartが発火する', async () => {
+    vad = new Vad();
+    await vad.init();
+
+    const onSpeechStart = vi.fn();
+    vad.onSpeechStart(onSpeechStart);
+
+    processSustainedSpeech(vad);
+
+    expect(onSpeechStart).toHaveBeenCalled();
+  });
+
   it('デフォルトの認識音量しきい値未満ではspeechStartが発火しない', async () => {
     vad = new Vad();
     await vad.init();
