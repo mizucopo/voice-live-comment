@@ -41,6 +41,36 @@ describe('recognition-volume-gate', () => {
     expect(gate.hasRecentTargetSpeech(3000, now)).toBe(true);
   });
 
+  it('短い非コメント音は認識対象発話にしない', () => {
+    const gate = new RecognitionVolumeGate({
+      recognitionVolumeThreshold: 0.08,
+      recognitionTargetDurationMs: 200
+    });
+    const nonCommentSoundFrame = new Float32Array(480).fill(0.5);
+
+    for (let i = 0; i < 6; i++) {
+      expect(gate.processFrame(nonCommentSoundFrame)).toBe(false);
+    }
+
+    expect(gate.hasRecentTargetSpeech()).toBe(false);
+  });
+
+  it('短文コメントは認識対象継続時間を満たせば認識対象発話にする', () => {
+    const gate = new RecognitionVolumeGate({
+      recognitionVolumeThreshold: 0.08,
+      recognitionTargetDurationMs: 200
+    });
+    const shortCommentFrame = new Float32Array(480).fill(0.5);
+    let isRecognitionTarget = false;
+
+    for (let i = 0; i < 7; i++) {
+      isRecognitionTarget = gate.processFrame(shortCommentFrame) || isRecognitionTarget;
+    }
+
+    expect(isRecognitionTarget).toBe(true);
+    expect(gate.hasRecentTargetSpeech()).toBe(true);
+  });
+
   it('しきい値未満を挟むと継続時間をリセットする', () => {
     const gate = new RecognitionVolumeGate({
       recognitionVolumeThreshold: 0.08,
