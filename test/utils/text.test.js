@@ -85,6 +85,15 @@ describe('parseDictionaryRules', () => {
     expect(parseDictionaryRules(null)).toEqual([]);
     expect(parseDictionaryRules(undefined)).toEqual([]);
   });
+
+  it('矢印の前後の空白をtrimする', () => {
+    const text = 'とーきょー → 東京\nぶろっこりー  →  ブロッコリー';
+    const rules = parseDictionaryRules(text);
+    expect(rules).toEqual([
+      { from: 'とーきょー', to: '東京' },
+      { from: 'ぶろっこりー', to: 'ブロッコリー' }
+    ]);
+  });
 });
 
 describe('applyDictionary', () => {
@@ -103,5 +112,13 @@ describe('applyDictionary', () => {
   it('同じパターンが複数あっても全て置換する', () => {
     const rules = [{ from: 'aa', to: 'bb' }];
     expect(applyDictionary('aaとaa', rules)).toBe('bbとbb');
+  });
+
+  it('rulesがnullの場合は元のテキストを返す', () => {
+    expect(applyDictionary('こんにちは', null)).toBe('こんにちは');
+  });
+
+  it('rulesがundefinedの場合は元のテキストを返す', () => {
+    expect(applyDictionary('こんにちは', undefined)).toBe('こんにちは');
   });
 });
