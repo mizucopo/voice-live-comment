@@ -42,6 +42,10 @@ export class BrowserSttProvider extends SttProvider {
 
     try {
       await this.startSpeechVolumeMonitor();
+      if (!this.isActive) {
+        await this.stopSpeechVolumeMonitor();
+        return;
+      }
       this.startInstance(0);
     } catch (error) {
       this.isActive = false;
@@ -118,7 +122,7 @@ export class BrowserSttProvider extends SttProvider {
           hasFinal = true;
         }
       }
-      if (finalText && this.hasRecentTargetSpeech()) {
+      if (finalText && this.consumeRecentTargetSpeech()) {
         this._emitResult(finalText);
       }
       if (hasFinal && index === this.activeIndex) {
@@ -165,6 +169,10 @@ export class BrowserSttProvider extends SttProvider {
 
   hasRecentTargetSpeech() {
     return this._speechVolumeMonitor?.hasRecentTargetSpeech() === true;
+  }
+
+  consumeRecentTargetSpeech() {
+    return this._speechVolumeMonitor?.consumeRecentTargetSpeech() === true;
   }
 
   startInstance(index) {

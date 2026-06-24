@@ -55,6 +55,10 @@ export class SpeechVolumeMonitor {
     return this._gate.hasRecentTargetSpeech(this._resultWindowMs);
   }
 
+  consumeRecentTargetSpeech() {
+    return this._gate.consumeRecentTargetSpeech(this._resultWindowMs);
+  }
+
   async stop() {
     if (this._scriptProcessor) {
       try { this._scriptProcessor.disconnect(); } catch (_) {}

@@ -55,4 +55,22 @@ describe('recognition-volume-gate', () => {
 
     expect(gate.hasRecentTargetSpeech()).toBe(false);
   });
+
+  it('直近の認識対象発話を消費できる', () => {
+    let now = 1000;
+    const gate = new RecognitionVolumeGate({
+      recognitionVolumeThreshold: 0.08,
+      recognitionTargetDurationMs: 60,
+      now: () => now
+    });
+
+    for (let i = 0; i < 2; i++) {
+      now += 30;
+      gate.processFrame(new Float32Array(480).fill(0.1), { now });
+    }
+
+    expect(gate.consumeRecentTargetSpeech(3000, now)).toBe(true);
+    expect(gate.hasRecentTargetSpeech(3000, now)).toBe(false);
+    expect(gate.consumeRecentTargetSpeech(3000, now)).toBe(false);
+  });
 });

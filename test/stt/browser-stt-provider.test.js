@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { BrowserSttProvider } from '../../src/stt/browser-stt-provider.js';
 
+function createDeferred() {
+  let resolve;
+  const promise = new Promise((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
+
 describe('BrowserSttProvider', () => {
   let provider;
   let settings;
@@ -12,6 +20,7 @@ describe('BrowserSttProvider', () => {
       this.start = vi.fn().mockResolvedValue(undefined);
       this.stop = vi.fn().mockResolvedValue(undefined);
       this.hasRecentTargetSpeech = vi.fn().mockReturnValue(true);
+      this.consumeRecentTargetSpeech = vi.fn().mockReturnValue(true);
       monitorInstances.push(this);
     }
   }
@@ -70,6 +79,36 @@ describe('BrowserSttProvider', () => {
     expect(monitorInstances[0].start).toHaveBeenCalledTimes(1);
   });
 
+  it('音量監視の開始中にstopされたらSpeechRecognitionを開始しない', async () => {
+    const monitorStart = createDeferred();
+
+    class SlowSpeechVolumeMonitor {
+      constructor() {
+        this.start = vi.fn().mockReturnValue(monitorStart.promise);
+        this.stop = vi.fn().mockResolvedValue(undefined);
+        this.consumeRecentTargetSpeech = vi.fn().mockReturnValue(true);
+        monitorInstances.push(this);
+      }
+    }
+
+    provider = new BrowserSttProvider(settings, {
+      SpeechVolumeMonitorClass: SlowSpeechVolumeMonitor
+    });
+
+    const startPromise = provider.start();
+    await Promise.resolve();
+
+    expect(monitorInstances[0].start).toHaveBeenCalledTimes(1);
+
+    const stopPromise = provider.stop();
+    monitorStart.resolve();
+    await startPromise;
+    await stopPromise;
+
+    expect(global.webkitSpeechRecognition).not.toHaveBeenCalled();
+    expect(monitorInstances[0].stop).toHaveBeenCalledTimes(1);
+  });
+
   it('onResult で認識結果が通知される', async () => {
     const onResult = vi.fn();
     provider.onResult(onResult);
@@ -90,7 +129,7 @@ describe('BrowserSttProvider', () => {
     const onResult = vi.fn();
     provider.onResult(onResult);
     await provider.start();
-    monitorInstances[0].hasRecentTargetSpeech.mockReturnValue(false);
+    monitorInstances[0].consumeRecentTargetSpeech.mockReturnValue(false);
 
     const instances = global.MockSpeechRecognition._instances;
     instances[0].onresult({
@@ -101,6 +140,33 @@ describe('BrowserSttProvider', () => {
     });
 
     expect(onResult).not.toHaveBeenCalled();
+  });
+
+  it('認識結果を通知したら認識対象発話を消費する', async () => {
+    const onResult = vi.fn();
+    provider.onResult(onResult);
+    await provider.start();
+    monitorInstances[0].consumeRecentTargetSpeech
+      .mockReturnValueOnce(true)
+      .mockReturnValueOnce(false);
+
+    const instances = global.MockSpeechRecognition._instances;
+    instances[0].onresult({
+      resultIndex: 0,
+      results: [
+        { isFinal: true, 0: { transcript: 'しっかり発話' } }
+      ]
+    });
+    instances[0].onresult({
+      resultIndex: 0,
+      results: [
+        { isFinal: true, 0: { transcript: 'ボソボソ' } }
+      ]
+    });
+
+    expect(onResult).toHaveBeenCalledTimes(1);
+    expect(onResult).toHaveBeenCalledWith('しっかり発話');
+    expect(monitorInstances[0].consumeRecentTargetSpeech).toHaveBeenCalledTimes(2);
   });
 
   it('onStart で開始通知がされる', async () => {

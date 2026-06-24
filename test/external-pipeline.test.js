@@ -108,6 +108,55 @@ describe('createExternalPipeline', () => {
     expect(provider.sendAudio).not.toHaveBeenCalled();
   });
 
+  it('speechStart 時に認識対象継続時間だけを発話前音声として含める', async () => {
+    const provider = { sendAudio: vi.fn() };
+    let audioCapture;
+    let vad;
+
+    class FakeAudioCapture {
+      constructor() {
+        audioCapture = this;
+        this.startRecording = vi.fn();
+      }
+
+      onPcmData(_callback) {}
+
+      stopRecording() {
+        return new Blob([], { type: 'audio/webm;codecs=opus' });
+      }
+
+      async start() {}
+
+      async stop() {}
+    }
+
+    class FakeVad {
+      constructor() {
+        vad = this;
+        this.RECOGNITION_TARGET_DURATION_MS = 200;
+      }
+
+      async init() {}
+
+      onSpeechStart(callback) {
+        this.onSpeechStartCallback = callback;
+      }
+
+      onSpeechEnd(_callback) {}
+
+      destroy() {}
+    }
+
+    await createExternalPipeline(provider, {
+      AudioCaptureClass: FakeAudioCapture,
+      VadClass: FakeVad
+    });
+
+    vad.onSpeechStartCallback();
+
+    expect(audioCapture.startRecording).toHaveBeenCalledWith({ preRollMs: 200 });
+  });
+
   it('停止中に speechEnd が発火しても音声を送信しない', async () => {
     const stopCapture = createDeferred();
     const provider = { sendAudio: vi.fn() };

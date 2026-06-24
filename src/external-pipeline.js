@@ -1,6 +1,9 @@
 import { AudioCapture } from './audio-capture.js';
 import { Vad } from './vad.js';
-import { DEFAULT_RECOGNITION_VOLUME_THRESHOLD } from './recognition-volume-gate.js';
+import {
+  DEFAULT_RECOGNITION_TARGET_DURATION_MS,
+  DEFAULT_RECOGNITION_VOLUME_THRESHOLD
+} from './recognition-volume-gate.js';
 
 export async function createExternalPipeline(provider, {
   AudioCaptureClass = AudioCapture,
@@ -11,6 +14,8 @@ export async function createExternalPipeline(provider, {
     recordingFormat: provider.recordingFormat || 'webm'
   });
   const vad = new VadClass({ recognitionVolumeThreshold });
+  const recognitionTargetDurationMs =
+    vad.RECOGNITION_TARGET_DURATION_MS ?? DEFAULT_RECOGNITION_TARGET_DURATION_MS;
   let isStopped = false;
 
   try {
@@ -19,7 +24,7 @@ export async function createExternalPipeline(provider, {
     audioCapture.onPcmData((frame) => vad.processFrame(frame));
     vad.onSpeechStart(() => {
       if (!isStopped) {
-        audioCapture.startRecording();
+        audioCapture.startRecording({ preRollMs: recognitionTargetDurationMs });
       }
     });
     vad.onSpeechEnd(() => {

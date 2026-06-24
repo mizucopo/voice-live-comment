@@ -81,6 +81,12 @@ export class RecognitionVolumeGate {
     return this._lastTargetSpeechAtMs !== null && now - this._lastTargetSpeechAtMs <= windowMs;
   }
 
+  consumeRecentTargetSpeech(windowMs = DEFAULT_RECOGNITION_RESULT_WINDOW_MS, now = this._now()) {
+    const hasRecentTargetSpeech = this.hasRecentTargetSpeech(windowMs, now);
+    this.reset();
+    return hasRecentTargetSpeech;
+  }
+
   reset() {
     this._aboveThresholdMs = 0;
     this._lastTargetSpeechAtMs = null;
