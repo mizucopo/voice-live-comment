@@ -77,14 +77,15 @@ export class AudioCapture {
     }
   }
 
-  startRecording() {
+  startRecording({ preRollMs = PRE_ROLL_MS } = {}) {
     const chunks = [];
     if (this._headerChunk) {
       chunks.push(this._headerChunk);
     }
     const startedAtMs = Date.now();
+    const boundedPreRollMs = Math.max(0, Math.min(PRE_ROLL_MS, preRollMs));
     const preRollStartMs = Math.max(
-      startedAtMs - PRE_ROLL_MS,
+      startedAtMs - boundedPreRollMs,
       this._preRollBoundaryMs
     );
     this._recordingPreRollStartMs = preRollStartMs;

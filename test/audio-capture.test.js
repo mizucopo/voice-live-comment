@@ -168,6 +168,22 @@ describe('AudioCapture', () => {
     });
   });
 
+  it('startRecording は発話前音声の長さを指定できる', async () => {
+    await withFakeTimers(async () => {
+      await startCaptureAt(0);
+
+      simulateChunkAt(0, 'header|');
+      simulateChunkAt(3000, 'quiet-pre-roll|');
+      simulateChunkAt(3850, 'target-start|');
+
+      vi.setSystemTime(4000);
+      capture.startRecording({ preRollMs: 200 });
+      const blob = capture.stopRecording();
+
+      await expect(blob.text()).resolves.toBe('header|target-start|');
+    });
+  });
+
   it('markPreRollBoundary 以前の音声を次の発話前音声に含めない', async () => {
     await withFakeTimers(async () => {
       await startCaptureAt(0);
