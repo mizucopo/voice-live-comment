@@ -4,6 +4,10 @@ import { GoogleSttProvider } from './stt/google-stt-provider.js';
 import { GrokSttProvider } from './stt/grok-stt-provider.js';
 import { createExternalPipeline } from './external-pipeline.js';
 import { VoiceCommentSession } from './voice-comment-session.js';
+import {
+  DEFAULT_RECOGNITION_VOLUME_THRESHOLD,
+  normalizeRecognitionVolumeThreshold
+} from './recognition-volume-gate.js';
 
 const SUPPORTED_STT_PROVIDERS = new Set(['browser', 'google', 'grok']);
 
@@ -16,6 +20,7 @@ let settings = {
   autoPost: true,
   language: 'ja-JP',
   useLocalModel: false,
+  recognitionVolumeThreshold: DEFAULT_RECOGNITION_VOLUME_THRESHOLD,
   boostPhrases: [],
   dictionary: '',
   googleApiKey: '',
@@ -59,12 +64,17 @@ async function loadSettings() {
     autoPost: true,
     language: 'ja-JP',
     useLocalModel: false,
+    recognitionVolumeThreshold: DEFAULT_RECOGNITION_VOLUME_THRESHOLD,
     boostPhrases: [],
     dictionary: '',
     googleApiKey: '',
     xaiApiKey: ''
   });
-  settings = { ...result, sttProvider: normalizeSttProvider(result.sttProvider) };
+  settings = {
+    ...result,
+    sttProvider: normalizeSttProvider(result.sttProvider),
+    recognitionVolumeThreshold: normalizeRecognitionVolumeThreshold(result.recognitionVolumeThreshold)
+  };
   parsedRules = parseDictionaryRules(settings.dictionary);
   return settings;
 }
@@ -162,7 +172,8 @@ function createProvider(providerSettings = settings) {
       return new BrowserSttProvider({
         language: providerSettings.language,
         useLocalModel: providerSettings.useLocalModel,
-        boostPhrases: providerSettings.boostPhrases
+        boostPhrases: providerSettings.boostPhrases,
+        recognitionVolumeThreshold: providerSettings.recognitionVolumeThreshold
       });
   }
 }

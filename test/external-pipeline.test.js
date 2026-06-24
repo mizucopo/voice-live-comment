@@ -13,6 +13,7 @@ describe('createExternalPipeline', () => {
   it('providerの録音形式をAudioCaptureに渡す', async () => {
     const provider = { sendAudio: vi.fn(), recordingFormat: 'pcm16' };
     let audioCaptureOptions;
+    let vadOptions;
 
     class FakeAudioCapture {
       constructor(options) {
@@ -33,6 +34,10 @@ describe('createExternalPipeline', () => {
     }
 
     class FakeVad {
+      constructor(options) {
+        vadOptions = options;
+      }
+
       async init() {}
 
       onSpeechStart(_callback) {}
@@ -44,10 +49,12 @@ describe('createExternalPipeline', () => {
 
     await createExternalPipeline(provider, {
       AudioCaptureClass: FakeAudioCapture,
-      VadClass: FakeVad
+      VadClass: FakeVad,
+      recognitionVolumeThreshold: 0.12
     });
 
     expect(audioCaptureOptions).toEqual({ recordingFormat: 'pcm16' });
+    expect(vadOptions).toEqual({ recognitionVolumeThreshold: 0.12 });
   });
 
   it('speechEnd 後に発話前音声の境界を更新する', async () => {
@@ -99,6 +106,55 @@ describe('createExternalPipeline', () => {
 
     expect(audioCapture.markPreRollBoundary).toHaveBeenCalledTimes(1);
     expect(provider.sendAudio).not.toHaveBeenCalled();
+  });
+
+  it('speechStart 時に認識対象継続時間だけを発話前音声として含める', async () => {
+    const provider = { sendAudio: vi.fn() };
+    let audioCapture;
+    let vad;
+
+    class FakeAudioCapture {
+      constructor() {
+        audioCapture = this;
+        this.startRecording = vi.fn();
+      }
+
+      onPcmData(_callback) {}
+
+      stopRecording() {
+        return new Blob([], { type: 'audio/webm;codecs=opus' });
+      }
+
+      async start() {}
+
+      async stop() {}
+    }
+
+    class FakeVad {
+      constructor() {
+        vad = this;
+        this.RECOGNITION_TARGET_DURATION_MS = 200;
+      }
+
+      async init() {}
+
+      onSpeechStart(callback) {
+        this.onSpeechStartCallback = callback;
+      }
+
+      onSpeechEnd(_callback) {}
+
+      destroy() {}
+    }
+
+    await createExternalPipeline(provider, {
+      AudioCaptureClass: FakeAudioCapture,
+      VadClass: FakeVad
+    });
+
+    vad.onSpeechStartCallback();
+
+    expect(audioCapture.startRecording).toHaveBeenCalledWith({ preRollMs: 200 });
   });
 
   it('停止中に speechEnd が発火しても音声を送信しない', async () => {

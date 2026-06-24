@@ -91,29 +91,32 @@ describe('VoiceCommentSession', () => {
   it('外部 pipeline 初期化後に provider start が失敗したら cleanup する', async () => {
     const pipeline = { stop: vi.fn().mockResolvedValue(undefined) };
     provider.start.mockRejectedValueOnce(new Error('接続テスト失敗'));
-    dependencies.loadSettings.mockResolvedValue({ sttProvider: 'google' });
+    const settings = { sttProvider: 'google', recognitionVolumeThreshold: 0.12 };
+    dependencies.loadSettings.mockResolvedValue(settings);
     dependencies.createExternalPipeline.mockResolvedValue(pipeline);
     const session = new VoiceCommentSession(dependencies);
 
     session.toggle();
     await flushAsyncWork();
 
-    expect(dependencies.createExternalPipeline).toHaveBeenCalledWith(provider);
+    expect(dependencies.createExternalPipeline).toHaveBeenCalledWith(provider, settings);
     expect(pipeline.stop).toHaveBeenCalledTimes(1);
+    expect(provider.stop).toHaveBeenCalledTimes(1);
     expect(dependencies.notifyError).toHaveBeenCalledWith('接続テスト失敗');
     expect(session.snapshot()).toEqual({ isActive: false });
   });
 
   it('Grokプロバイダー選択時に外部 pipeline を初期化する', async () => {
     const pipeline = { stop: vi.fn().mockResolvedValue(undefined) };
-    dependencies.loadSettings.mockResolvedValue({ sttProvider: 'grok' });
+    const settings = { sttProvider: 'grok', recognitionVolumeThreshold: 0.1 };
+    dependencies.loadSettings.mockResolvedValue(settings);
     dependencies.createExternalPipeline.mockResolvedValue(pipeline);
     const session = new VoiceCommentSession(dependencies);
 
     session.toggle();
     await flushAsyncWork();
 
-    expect(dependencies.createExternalPipeline).toHaveBeenCalledWith(provider);
+    expect(dependencies.createExternalPipeline).toHaveBeenCalledWith(provider, settings);
   });
 
   it('認識結果を投稿 module に渡す', async () => {
