@@ -1,11 +1,16 @@
 import { SttProvider } from './stt-provider.js';
+import { SpeechVolumeMonitor } from '../speech-volume-monitor.js';
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 export class BrowserSttProvider extends SttProvider {
-  constructor(settings) {
+  constructor(settings, {
+    SpeechVolumeMonitorClass = SpeechVolumeMonitor
+  } = {}) {
     super();
     this.settings = settings;
+    this._SpeechVolumeMonitorClass = SpeechVolumeMonitorClass;
+    this._speechVolumeMonitor = null;
     this.recognitions = [null, null];
     this.activeIndex = 0;
     this.nextPreStarted = false;
@@ -35,7 +40,14 @@ export class BrowserSttProvider extends SttProvider {
       }
     }
 
-    this.startInstance(0);
+    try {
+      await this.startSpeechVolumeMonitor();
+      this.startInstance(0);
+    } catch (error) {
+      this.isActive = false;
+      await this.stopSpeechVolumeMonitor();
+      throw error;
+    }
   }
 
   async stop() {
@@ -53,7 +65,24 @@ export class BrowserSttProvider extends SttProvider {
       }
     }
 
+    await this.stopSpeechVolumeMonitor();
     this._emitStop();
+  }
+
+  async startSpeechVolumeMonitor() {
+    await this.stopSpeechVolumeMonitor();
+    this._speechVolumeMonitor = new this._SpeechVolumeMonitorClass({
+      recognitionVolumeThreshold: this.settings.recognitionVolumeThreshold
+    });
+    await this._speechVolumeMonitor.start();
+  }
+
+  async stopSpeechVolumeMonitor() {
+    if (!this._speechVolumeMonitor) return;
+
+    const monitor = this._speechVolumeMonitor;
+    this._speechVolumeMonitor = null;
+    await monitor.stop();
   }
 
   setupRecognitionInstance(index) {
@@ -89,7 +118,7 @@ export class BrowserSttProvider extends SttProvider {
           hasFinal = true;
         }
       }
-      if (finalText) {
+      if (finalText && this.hasRecentTargetSpeech()) {
         this._emitResult(finalText);
       }
       if (hasFinal && index === this.activeIndex) {
@@ -132,6 +161,10 @@ export class BrowserSttProvider extends SttProvider {
 
     this.recognitions[index] = rec;
     return rec;
+  }
+
+  hasRecentTargetSpeech() {
+    return this._speechVolumeMonitor?.hasRecentTargetSpeech() === true;
   }
 
   startInstance(index) {

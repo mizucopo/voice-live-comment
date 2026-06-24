@@ -1,10 +1,26 @@
+import {
+  DEFAULT_RECOGNITION_TARGET_DURATION_MS,
+  DEFAULT_RECOGNITION_VOLUME_THRESHOLD,
+  RecognitionVolumeGate,
+  calculateRms,
+  normalizeRecognitionVolumeThreshold
+} from './recognition-volume-gate.js';
+
 export class Vad {
-  constructor() {
+  constructor({
+    recognitionVolumeThreshold = DEFAULT_RECOGNITION_VOLUME_THRESHOLD,
+    recognitionTargetDurationMs = DEFAULT_RECOGNITION_TARGET_DURATION_MS
+  } = {}) {
     this._isSpeech = false;
     this._silenceTimer = null;
     this._speechStartCallbacks = [];
     this._speechEndCallbacks = [];
-    this.THRESHOLD = 0.05;
+    this.THRESHOLD = normalizeRecognitionVolumeThreshold(recognitionVolumeThreshold);
+    this.RECOGNITION_TARGET_DURATION_MS = recognitionTargetDurationMs;
+    this._recognitionVolumeGate = new RecognitionVolumeGate({
+      recognitionVolumeThreshold: this.THRESHOLD,
+      recognitionTargetDurationMs
+    });
     this.SPEECH_END_GRACE_MS = 3000;
     this.FRAME_SIZE = 480; // 30ms at 16kHz
   }
@@ -22,16 +38,13 @@ export class Vad {
   }
 
   processFrame(pcmData) {
-    let sum = 0;
-    for (let i = 0; i < pcmData.length; i++) {
-      sum += pcmData[i] * pcmData[i];
-    }
-    const rms = Math.sqrt(sum / pcmData.length);
-    this._updateState(rms);
+    const rms = calculateRms(pcmData);
+    const isRecognitionTarget = this._recognitionVolumeGate.processFrame(pcmData);
+    this._updateState(rms, isRecognitionTarget);
   }
 
-  _updateState(energy) {
-    if (energy >= this.THRESHOLD && !this._isSpeech) {
+  _updateState(energy, isRecognitionTarget) {
+    if (isRecognitionTarget && !this._isSpeech) {
       this._isSpeech = true;
       clearTimeout(this._silenceTimer);
       this._silenceTimer = null;
@@ -53,6 +66,7 @@ export class Vad {
   destroy() {
     clearTimeout(this._silenceTimer);
     this._isSpeech = false;
+    this._recognitionVolumeGate.reset();
     this._speechStartCallbacks = [];
     this._speechEndCallbacks = [];
   }

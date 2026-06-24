@@ -1,14 +1,16 @@
 import { AudioCapture } from './audio-capture.js';
 import { Vad } from './vad.js';
+import { DEFAULT_RECOGNITION_VOLUME_THRESHOLD } from './recognition-volume-gate.js';
 
 export async function createExternalPipeline(provider, {
   AudioCaptureClass = AudioCapture,
-  VadClass = Vad
+  VadClass = Vad,
+  recognitionVolumeThreshold = DEFAULT_RECOGNITION_VOLUME_THRESHOLD
 } = {}) {
   const audioCapture = new AudioCaptureClass({
     recordingFormat: provider.recordingFormat || 'webm'
   });
-  const vad = new VadClass();
+  const vad = new VadClass({ recognitionVolumeThreshold });
   let isStopped = false;
 
   try {

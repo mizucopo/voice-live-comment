@@ -13,6 +13,7 @@ describe('createExternalPipeline', () => {
   it('providerの録音形式をAudioCaptureに渡す', async () => {
     const provider = { sendAudio: vi.fn(), recordingFormat: 'pcm16' };
     let audioCaptureOptions;
+    let vadOptions;
 
     class FakeAudioCapture {
       constructor(options) {
@@ -33,6 +34,10 @@ describe('createExternalPipeline', () => {
     }
 
     class FakeVad {
+      constructor(options) {
+        vadOptions = options;
+      }
+
       async init() {}
 
       onSpeechStart(_callback) {}
@@ -44,10 +49,12 @@ describe('createExternalPipeline', () => {
 
     await createExternalPipeline(provider, {
       AudioCaptureClass: FakeAudioCapture,
-      VadClass: FakeVad
+      VadClass: FakeVad,
+      recognitionVolumeThreshold: 0.12
     });
 
     expect(audioCaptureOptions).toEqual({ recordingFormat: 'pcm16' });
+    expect(vadOptions).toEqual({ recognitionVolumeThreshold: 0.12 });
   });
 
   it('speechEnd 後に発話前音声の境界を更新する', async () => {

@@ -4,18 +4,37 @@ import { BrowserSttProvider } from '../../src/stt/browser-stt-provider.js';
 describe('BrowserSttProvider', () => {
   let provider;
   let settings;
+  let monitorInstances;
+
+  class FakeSpeechVolumeMonitor {
+    constructor(options) {
+      this.options = options;
+      this.start = vi.fn().mockResolvedValue(undefined);
+      this.stop = vi.fn().mockResolvedValue(undefined);
+      this.hasRecentTargetSpeech = vi.fn().mockReturnValue(true);
+      monitorInstances.push(this);
+    }
+  }
+
+  function createProvider() {
+    return new BrowserSttProvider(settings, {
+      SpeechVolumeMonitorClass: FakeSpeechVolumeMonitor
+    });
+  }
 
   beforeEach(() => {
     vi.clearAllMocks();
     global.MockSpeechRecognition._instances.length = 0;
     global.MockSpeechRecognition._startShouldThrow = null;
+    monitorInstances = [];
 
     settings = {
       language: 'ja-JP',
       useLocalModel: false,
-      boostPhrases: []
+      boostPhrases: [],
+      recognitionVolumeThreshold: 0.08
     };
-    provider = new BrowserSttProvider(settings);
+    provider = createProvider();
   });
 
   it('start() でSpeechRecognitionインスタンスを1つ作成する', async () => {
@@ -27,7 +46,7 @@ describe('BrowserSttProvider', () => {
 
   it('start() で言語設定が反映される', async () => {
     settings.language = 'en-US';
-    provider = new BrowserSttProvider(settings);
+    provider = createProvider();
     await provider.start();
     const instances = global.MockSpeechRecognition._instances;
     expect(instances[0].lang).toBe('en-US');
@@ -35,10 +54,20 @@ describe('BrowserSttProvider', () => {
 
   it('useLocalModel=true でprocessLocallyが設定される', async () => {
     settings.useLocalModel = true;
-    provider = new BrowserSttProvider(settings);
+    provider = createProvider();
     await provider.start();
     const instances = global.MockSpeechRecognition._instances;
     expect(instances[0].processLocally).toBe(true);
+  });
+
+  it('start() で音量監視を開始する', async () => {
+    settings.recognitionVolumeThreshold = 0.12;
+    provider = createProvider();
+
+    await provider.start();
+
+    expect(monitorInstances[0].options).toEqual({ recognitionVolumeThreshold: 0.12 });
+    expect(monitorInstances[0].start).toHaveBeenCalledTimes(1);
   });
 
   it('onResult で認識結果が通知される', async () => {
@@ -55,6 +84,23 @@ describe('BrowserSttProvider', () => {
     });
 
     expect(onResult).toHaveBeenCalledWith('こんにちは');
+  });
+
+  it('認識対象発話が直近にない結果は通知しない', async () => {
+    const onResult = vi.fn();
+    provider.onResult(onResult);
+    await provider.start();
+    monitorInstances[0].hasRecentTargetSpeech.mockReturnValue(false);
+
+    const instances = global.MockSpeechRecognition._instances;
+    instances[0].onresult({
+      resultIndex: 0,
+      results: [
+        { isFinal: true, 0: { transcript: 'ボソボソ' } }
+      ]
+    });
+
+    expect(onResult).not.toHaveBeenCalled();
   });
 
   it('onStart で開始通知がされる', async () => {
@@ -79,7 +125,7 @@ describe('BrowserSttProvider', () => {
 
   it('not-allowedエラー時にuseLocalModel=trueならフォールバックする', async () => {
     settings.useLocalModel = true;
-    provider = new BrowserSttProvider(settings);
+    provider = createProvider();
     const onError = vi.fn();
     provider.onError(onError);
     await provider.start();
@@ -126,7 +172,7 @@ describe('BrowserSttProvider', () => {
 
   it('fallbackToCloud() 後に旧インスタンスのonendでゴーストが生成されない', async () => {
     settings.useLocalModel = true;
-    provider = new BrowserSttProvider(settings);
+    provider = createProvider();
     const onError = vi.fn();
     provider.onError(onError);
     await provider.start();
@@ -159,7 +205,7 @@ describe('BrowserSttProvider', () => {
 
   it('fallbackToCloud のエラーメッセージに理由が含まれる', async () => {
     settings.useLocalModel = true;
-    provider = new BrowserSttProvider(settings);
+    provider = createProvider();
     const onError = vi.fn();
     provider.onError(onError);
     await provider.start();
@@ -203,7 +249,7 @@ describe('BrowserSttProvider', () => {
 
   it('fallbackToCloud 後の旧インスタンスの aborted は通知されない', async () => {
     settings.useLocalModel = true;
-    provider = new BrowserSttProvider(settings);
+    provider = createProvider();
     const onError = vi.fn();
     provider.onError(onError);
     await provider.start();
@@ -260,7 +306,7 @@ describe('BrowserSttProvider', () => {
 
   it('fallbackToCloud() 中に同期的に発火する aborted エラーは通知されない', async () => {
     settings.useLocalModel = true;
-    provider = new BrowserSttProvider(settings);
+    provider = createProvider();
     const onError = vi.fn();
     provider.onError(onError);
     await provider.start();
@@ -307,6 +353,7 @@ describe('BrowserSttProvider', () => {
     expect(instances.length).toBe(1);
 
     await provider.stop();
+    expect(monitorInstances[0].stop).toHaveBeenCalledTimes(1);
     // stop後にonendが呼ばれても再起動しない
     instances[0].onend();
     // 新しいインスタンスは作成されない

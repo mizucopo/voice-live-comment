@@ -92,7 +92,7 @@ export class VoiceCommentSession {
 
     if (settings.sttProvider === 'google' || settings.sttProvider === 'grok') {
       try {
-        this._externalPipeline = await this._createExternalPipeline(provider);
+        this._externalPipeline = await this._createExternalPipeline(provider, settings);
       } catch (error) {
         this._notifyError('VADの初期化に失敗しました: ' + error.message);
         this._currentProvider = null;
@@ -130,9 +130,10 @@ export class VoiceCommentSession {
   }
 
   async _cleanupFailedStart() {
-    const { pipeline } = this._takeCurrentResources();
+    const { provider, pipeline } = this._takeCurrentResources();
 
     await this._stopExternalPipeline(pipeline);
+    await this._stopProvider(provider);
     this._isActive = false;
     this._finishStarting();
   }

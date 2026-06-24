@@ -36,12 +36,27 @@
       font-size: 14px;
       box-sizing: border-box;
     }
+    input[type="range"] {
+      width: 100%;
+      box-sizing: border-box;
+    }
     textarea {
       width: 100%;
       padding: 8px;
       font-size: 14px;
       box-sizing: border-box;
       resize: vertical;
+    }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 4px;
+    }
+    .setting-value {
+      font-size: 12px;
+      color: #333;
     }
     .hint {
       font-size: 12px;
@@ -89,6 +104,16 @@
       <label for="language">言語コード</label>
       <input type="text" id="language" value="ja-JP" placeholder="例: ja-JP, en-US, ko-KR, zh-CN">
       <div class="hint">音声認識の言語を指定します</div>
+    </div>
+
+    <div class="form-group">
+      <label for="recognitionVolumeThreshold">認識音量しきい値</label>
+      <input type="range" id="recognitionVolumeThreshold" min="0.01" max="0.20" step="0.01" value="0.08">
+      <div class="setting-row">
+        <span id="recognitionVolumeThresholdValue" class="setting-value">現在: 0.08 / デフォルト: 0.08</span>
+        <button type="button" id="resetRecognitionVolumeThreshold">デフォルトに戻す</button>
+      </div>
+      <div class="hint">値を上げるほど小さい声を拾いにくくなります</div>
     </div>
 
     <div id="browserSettings">
