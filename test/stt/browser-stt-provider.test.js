@@ -81,11 +81,20 @@ describe('BrowserSttProvider', () => {
 
   it('音量監視の開始中にstopされたらSpeechRecognitionを開始しない', async () => {
     const monitorStart = createDeferred();
+    const track = { stop: vi.fn() };
 
     class SlowSpeechVolumeMonitor {
       constructor() {
-        this.start = vi.fn().mockReturnValue(monitorStart.promise);
-        this.stop = vi.fn().mockResolvedValue(undefined);
+        this.stream = null;
+        this.start = vi.fn(async () => {
+          await monitorStart.promise;
+          this.stream = { getTracks: () => [track] };
+        });
+        this.stop = vi.fn(async () => {
+          if (!this.stream) return;
+          this.stream.getTracks().forEach(track => track.stop());
+          this.stream = null;
+        });
         this.consumeRecentTargetSpeech = vi.fn().mockReturnValue(true);
         monitorInstances.push(this);
       }
@@ -101,12 +110,15 @@ describe('BrowserSttProvider', () => {
     expect(monitorInstances[0].start).toHaveBeenCalledTimes(1);
 
     const stopPromise = provider.stop();
+    await stopPromise;
+    expect(track.stop).not.toHaveBeenCalled();
+
     monitorStart.resolve();
     await startPromise;
-    await stopPromise;
 
     expect(global.webkitSpeechRecognition).not.toHaveBeenCalled();
-    expect(monitorInstances[0].stop).toHaveBeenCalledTimes(1);
+    expect(monitorInstances[0].stop).toHaveBeenCalledTimes(2);
+    expect(track.stop).toHaveBeenCalledTimes(1);
   });
 
   it('onResult で認識結果が通知される', async () => {

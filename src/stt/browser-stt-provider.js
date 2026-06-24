@@ -18,6 +18,7 @@ export class BrowserSttProvider extends SttProvider {
     this.hasFallbackFromLocal = false;
     this.isInitialStart = true;
     this.startTimeoutId = null;
+    this._speechVolumeMonitorGeneration = 0;
   }
 
   async start() {
@@ -41,7 +42,8 @@ export class BrowserSttProvider extends SttProvider {
     }
 
     try {
-      await this.startSpeechVolumeMonitor();
+      const monitorStarted = await this.startSpeechVolumeMonitor();
+      if (!monitorStarted) return;
       if (!this.isActive) {
         await this.stopSpeechVolumeMonitor();
         return;
@@ -75,13 +77,39 @@ export class BrowserSttProvider extends SttProvider {
 
   async startSpeechVolumeMonitor() {
     await this.stopSpeechVolumeMonitor();
-    this._speechVolumeMonitor = new this._SpeechVolumeMonitorClass({
+
+    const generation = ++this._speechVolumeMonitorGeneration;
+    const monitor = new this._SpeechVolumeMonitorClass({
       recognitionVolumeThreshold: this.settings.recognitionVolumeThreshold
     });
-    await this._speechVolumeMonitor.start();
+    this._speechVolumeMonitor = monitor;
+
+    try {
+      await monitor.start();
+    } catch (error) {
+      if (this._speechVolumeMonitor !== monitor || this._speechVolumeMonitorGeneration !== generation) {
+        await monitor.stop();
+        return false;
+      }
+
+      this._speechVolumeMonitor = null;
+      await monitor.stop();
+      throw error;
+    }
+
+    if (this._speechVolumeMonitor !== monitor || this._speechVolumeMonitorGeneration !== generation) {
+      if (this._speechVolumeMonitor === monitor) {
+        this._speechVolumeMonitor = null;
+      }
+      await monitor.stop();
+      return false;
+    }
+
+    return true;
   }
 
   async stopSpeechVolumeMonitor() {
+    this._speechVolumeMonitorGeneration++;
     if (!this._speechVolumeMonitor) return;
 
     const monitor = this._speechVolumeMonitor;
