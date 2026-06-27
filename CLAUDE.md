@@ -48,7 +48,7 @@ Keep extension entrypoints small and testable so browser-specific behavior stays
 
 ### HOW
 
-- Place tests in `tests/` and mirror `src/` structure when practical
+- Place tests in `test/` and mirror `src/` structure when practical
 - Use `npm run check` before handing off changes
 
 ## Chrome Extension Quality Check
