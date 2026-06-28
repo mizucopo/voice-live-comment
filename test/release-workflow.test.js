@@ -16,6 +16,11 @@ const rerunReleaseChecks = [
   'gh release upload "$RELEASE_TAG" "$ZIP_NAME" --clobber'
 ];
 
+const packagedLicenseChecks = [
+  'cp manifest.json options.html LICENSE "$package_dir/"',
+  'test -f "$package_dir/LICENSE"'
+];
+
 describe('release workflow', () => {
   it('write可能なpull_request_targetイベントで実行される', () => {
     expect(workflow).toMatch(/^  pull_request_target:/m);
@@ -30,6 +35,12 @@ describe('release workflow', () => {
 
   it('再実行時は既存のGitHub Releaseを再利用する', () => {
     for (const check of rerunReleaseChecks) {
+      expect(workflow).toContain(check);
+    }
+  });
+
+  it('配布版にMITライセンスを同梱する', () => {
+    for (const check of packagedLicenseChecks) {
       expect(workflow).toContain(check);
     }
   });
