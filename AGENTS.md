@@ -18,43 +18,23 @@ git mv <old-path> <new-path>  # Move files
 git rm <path>                  # Delete files
 ```
 
-## Chrome Extension Code Organization Rules
+## Existing Chrome Extension Adoption Rules
 
 ### WHY
 
-Keep extension entrypoints small and testable so browser-specific behavior stays easy to review.
+Keep shared template metadata while the existing JavaScript Manifest V3 extension remains the source of truth.
 
 ### WHAT
 
-- Target Manifest V3
-- Keep runtime JavaScript in `src/`
-- Keep generated extension output in `dist/`
-- Keep reusable logic in focused modules under `src/`
+- Preserve existing `package.json`, `src/`, `test/`, `tests/`, and release workflows unless the task explicitly asks to change them
+- Do not introduce the template starter TypeScript extension files during template updates
+- Keep runtime JavaScript in `src/`, generated extension output in `dist/`, and reusable logic in focused modules under `src/`
 - Do not edit `dist/` manually
 
 ### HOW
 
 - Put Chrome API boundaries in entrypoints such as `background.js`, `content.js`, and `options.js`
-- Test reusable logic through Vitest instead of testing generated output
-
-## Chrome Extension Testing Guidelines
-
-### WHAT
-
-- **Framework**: Use Vitest for unit tests
-- **Language**: Write test comments and docstrings in Japanese when they clarify intent
-- **Strategy**: Test observable behavior, not generated JavaScript or private implementation details
-- **Mocking**: Mock Chrome APIs only at entrypoint boundaries
-
-### HOW
-
+- Test observable behavior through Vitest instead of generated JavaScript or private implementation details
+- Mock Chrome APIs only at entrypoint boundaries
 - Place tests in `test/` and mirror `src/` structure when practical
-- Use `npm run check` before handing off changes
-
-## Chrome Extension Quality Check
-
-### HOW
-
-```bash
-npm run check
-```
+- Run `npm run check` before handing off changes
