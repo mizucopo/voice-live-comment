@@ -91,11 +91,12 @@ jobs:
           package_dir="${RUNNER_TEMP}/${package_name}"
           mkdir -p "$package_dir"
 
-          cp manifest.json options.html "$package_dir/"
+          cp manifest.json options.html LICENSE "$package_dir/"
           cp -R src dist icons "$package_dir/"
 
           test -f "$package_dir/manifest.json"
           test -f "$package_dir/options.html"
+          test -f "$package_dir/LICENSE"
           test -f "$package_dir/dist/content.js"
           test -f "$package_dir/src/background.js"
           test -f "$package_dir/src/options.js"
