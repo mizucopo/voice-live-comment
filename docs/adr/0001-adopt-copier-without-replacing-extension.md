@@ -1,3 +1,3 @@
 # Adopt Copier Without Replacing the Extension
 
-Voice Live Comment copies selected guidance and metadata from `mizucopo/repo-template`, but it is not registered as an updatable Copier child yet. The template's Chrome extension option currently generates a starter TypeScript extension, so this repo adopts the Node version, agent guidance, and license metadata while excluding starter source, tests, package metadata, and generic workflows that would replace established project behavior.
+Voice Live Comment is registered as a child of `mizucopo/repo-template` using `chrome_extension_mode=adopt_existing`. The repository keeps its existing JavaScript Manifest V3 implementation, package metadata, tests, and release workflow as the source of truth while adopting shared template metadata such as the Node version, agent guidance, license, and Copier update state.

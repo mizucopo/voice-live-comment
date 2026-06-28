@@ -1,0 +1,13 @@
+_commit: 8e77a51
+_src_path: git@github.com:mizucopo/repo-template.git
+author_name: みず
+chrome_extension_mode: adopt_existing
+node_version: '22'
+use_chrome_extension: true
+use_docker: false
+use_gh_actions_pr_tag_check: false
+use_gh_actions_release: false
+use_mit_license: true
+use_python: false
+use_rust: false
+use_tauri: false
