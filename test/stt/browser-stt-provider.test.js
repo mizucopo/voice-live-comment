@@ -41,7 +41,7 @@ describe('BrowserSttProvider', () => {
       language: 'ja-JP',
       useLocalModel: false,
       boostPhrases: [],
-      recognitionVolumeThreshold: 0.08
+      recognitionVolumeThreshold: 0.05
     };
     provider = createProvider();
   });
