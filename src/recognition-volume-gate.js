@@ -59,7 +59,7 @@ export class RecognitionVolumeGate {
     now = () => Date.now()
   } = {}) {
     this.threshold = normalizeRecognitionVolumeThreshold(recognitionVolumeThreshold);
-    this.isDisabled = isRecognitionVolumeGateDisabled(this.threshold);
+    this.isDisabled = this.threshold === DISABLED_RECOGNITION_VOLUME_THRESHOLD;
     this.targetDurationMs = recognitionTargetDurationMs;
     this._now = now;
     this._aboveThresholdMs = 0;
