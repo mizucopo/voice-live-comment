@@ -74,9 +74,21 @@ describe('Vad', () => {
     const onSpeechStart = vi.fn();
     vad.onSpeechStart(onSpeechStart);
 
-    processSustainedSpeech(vad, new Float32Array(480).fill(0.05));
+    processSustainedSpeech(vad, new Float32Array(480).fill(0.04));
 
     expect(onSpeechStart).not.toHaveBeenCalled();
+  });
+
+  it('デフォルトの認識音量しきい値で0.05の発話を拾う', async () => {
+    vad = new Vad();
+    await vad.init();
+
+    const onSpeechStart = vi.fn();
+    vad.onSpeechStart(onSpeechStart);
+
+    processSustainedSpeech(vad, new Float32Array(480).fill(0.05));
+
+    expect(onSpeechStart).toHaveBeenCalled();
   });
 
   it('認識音量しきい値を指定できる', async () => {
