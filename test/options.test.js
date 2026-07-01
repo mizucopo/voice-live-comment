@@ -16,7 +16,7 @@ describe('options.js', () => {
       </select>
       <input type="password" id="googleApiKey" />
       <input type="password" id="xaiApiKey" />
-      <input type="range" id="recognitionVolumeThreshold" min="0.01" max="0.20" step="0.01" value="0.08" />
+      <input type="range" id="recognitionVolumeThreshold" min="0" max="0.20" step="0.01" value="0.05" />
       <span id="recognitionVolumeThresholdValue"></span>
       <button id="resetRecognitionVolumeThreshold" type="button">デフォルトに戻す</button>
       <div id="browserSettings">
@@ -50,7 +50,7 @@ describe('options.js', () => {
         autoPost: true,
         language: 'ja-JP',
         useLocalModel: false,
-        recognitionVolumeThreshold: 0.08,
+        recognitionVolumeThreshold: 0.05,
         boostPhrases: [],
         dictionary: '',
         googleApiKey: '',
@@ -62,9 +62,9 @@ describe('options.js', () => {
       expect(document.getElementById('sttProvider').value).toBe('browser');
       expect(autoPostCheckbox.checked).toBe(true);
       expect(languageInput.value).toBe('ja-JP');
-      expect(document.getElementById('recognitionVolumeThreshold').value).toBe('0.08');
+      expect(document.getElementById('recognitionVolumeThreshold').value).toBe('0.05');
       expect(document.getElementById('recognitionVolumeThresholdValue').textContent)
-        .toBe('現在: 0.08 / デフォルト: 0.08');
+        .toBe('現在: 0.05 / デフォルト: 0.05');
     });
 
     it('保存済み設定を読み込む', async () => {
@@ -89,6 +89,26 @@ describe('options.js', () => {
       expect(document.getElementById('boostPhrases').value).toBe('配信\nコメント');
       expect(document.getElementById('dictionary').value).toBe('とーきょー→東京');
     });
+
+    it('認識音量ゲート無効の設定を読み込む', async () => {
+      chrome.storage.sync.get.mockResolvedValue({
+        sttProvider: 'browser',
+        autoPost: true,
+        language: 'ja-JP',
+        useLocalModel: false,
+        recognitionVolumeThreshold: 0,
+        boostPhrases: [],
+        dictionary: '',
+        googleApiKey: '',
+        xaiApiKey: ''
+      });
+
+      await loadSettings();
+
+      expect(document.getElementById('recognitionVolumeThreshold').value).toBe('0.00');
+      expect(document.getElementById('recognitionVolumeThresholdValue').textContent)
+        .toBe('現在: 0.00 / デフォルト: 0.05');
+    });
   });
 
   describe('saveSettings', () => {
@@ -104,7 +124,7 @@ describe('options.js', () => {
         autoPost: true,
         language: 'en-US',
         useLocalModel: false,
-        recognitionVolumeThreshold: 0.08,
+        recognitionVolumeThreshold: 0.05,
         boostPhrases: [],
         dictionary: '',
         googleApiKey: '',
@@ -124,7 +144,7 @@ describe('options.js', () => {
         autoPost: true,
         language: 'ja-JP',
         useLocalModel: false,
-        recognitionVolumeThreshold: 0.08,
+        recognitionVolumeThreshold: 0.05,
         boostPhrases: [],
         dictionary: '',
         googleApiKey: '',
@@ -172,7 +192,7 @@ describe('options.js', () => {
         autoPost: true,
         language: 'ja-JP',
         useLocalModel: true,
-        recognitionVolumeThreshold: 0.08,
+        recognitionVolumeThreshold: 0.05,
         boostPhrases: ['配信', 'コメント'],
         dictionary: 'とーきょー→東京',
         googleApiKey: '',
@@ -207,15 +227,31 @@ describe('options.js', () => {
       expect(result.recognitionVolumeThreshold).toBe(0.12);
     });
 
+    it('認識音量ゲート無効として0を保存する', async () => {
+      autoPostCheckbox.checked = true;
+      languageInput.value = 'ja-JP';
+      document.getElementById('recognitionVolumeThreshold').value = '0';
+      chrome.tabs.query.mockResolvedValue([]);
+
+      const result = await saveSettings();
+
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith(
+        expect.objectContaining({ recognitionVolumeThreshold: 0 })
+      );
+      expect(result.recognitionVolumeThreshold).toBe(0);
+      expect(document.getElementById('recognitionVolumeThresholdValue').textContent)
+        .toBe('現在: 0.00 / デフォルト: 0.05');
+    });
+
     it('認識音量しきい値をデフォルトに戻す', () => {
       document.getElementById('recognitionVolumeThreshold').value = '0.15';
 
       const threshold = resetRecognitionVolumeThreshold();
 
-      expect(threshold).toBe(0.08);
-      expect(document.getElementById('recognitionVolumeThreshold').value).toBe('0.08');
+      expect(threshold).toBe(0.05);
+      expect(document.getElementById('recognitionVolumeThreshold').value).toBe('0.05');
       expect(document.getElementById('recognitionVolumeThresholdValue').textContent)
-        .toBe('現在: 0.08 / デフォルト: 0.08');
+        .toBe('現在: 0.05 / デフォルト: 0.05');
     });
   });
 
@@ -229,7 +265,7 @@ describe('options.js', () => {
         </select>
         <input type="password" id="googleApiKey" />
         <input type="password" id="xaiApiKey" />
-        <input type="range" id="recognitionVolumeThreshold" min="0.01" max="0.20" step="0.01" value="0.08" />
+        <input type="range" id="recognitionVolumeThreshold" min="0" max="0.20" step="0.01" value="0.05" />
         <span id="recognitionVolumeThresholdValue"></span>
         <button id="resetRecognitionVolumeThreshold" type="button">デフォルトに戻す</button>
         <div id="browserSettings">
