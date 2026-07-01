@@ -91,6 +91,38 @@ describe('Vad', () => {
     expect(onSpeechStart).toHaveBeenCalled();
   });
 
+  it('認識音量ゲート無効時は認識対象継続時間を待たずにspeechStartが発火する', async () => {
+    vad = new Vad({ recognitionVolumeThreshold: 0 });
+    await vad.init();
+
+    const onSpeechStart = vi.fn();
+    vad.onSpeechStart(onSpeechStart);
+
+    vad.processFrame(new Float32Array(480).fill(0.05));
+
+    expect(onSpeechStart).toHaveBeenCalled();
+  });
+
+  it('認識音量ゲート無効時も無音が続くとspeechEndが発火する', async () => {
+    vad = new Vad({ recognitionVolumeThreshold: 0 });
+    await vad.init();
+
+    const onSpeechStart = vi.fn();
+    const onSpeechEnd = vi.fn();
+    vad.onSpeechStart(onSpeechStart);
+    vad.onSpeechEnd(onSpeechEnd);
+
+    vad.processFrame(new Float32Array(480).fill(0.05));
+    expect(onSpeechStart).toHaveBeenCalled();
+
+    vi.useFakeTimers();
+    vad.processFrame(silenceFrame);
+    vi.advanceTimersByTime(3000);
+
+    expect(onSpeechEnd).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   it('閾値以下が3000ms続くとspeechEndイベントが発火する', async () => {
     vad = new Vad();
     await vad.init();

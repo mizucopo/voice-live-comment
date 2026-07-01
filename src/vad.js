@@ -1,8 +1,10 @@
 import {
   DEFAULT_RECOGNITION_TARGET_DURATION_MS,
   DEFAULT_RECOGNITION_VOLUME_THRESHOLD,
+  MIN_ACTIVE_RECOGNITION_VOLUME_THRESHOLD,
   RecognitionVolumeGate,
   calculateRms,
+  isRecognitionVolumeGateDisabled,
   normalizeRecognitionVolumeThreshold
 } from './recognition-volume-gate.js';
 
@@ -16,6 +18,10 @@ export class Vad {
     this._speechStartCallbacks = [];
     this._speechEndCallbacks = [];
     this.THRESHOLD = normalizeRecognitionVolumeThreshold(recognitionVolumeThreshold);
+    this._isRecognitionVolumeGateDisabled = isRecognitionVolumeGateDisabled(this.THRESHOLD);
+    this.SPEECH_BOUNDARY_THRESHOLD = this._isRecognitionVolumeGateDisabled
+      ? MIN_ACTIVE_RECOGNITION_VOLUME_THRESHOLD
+      : this.THRESHOLD;
     this.RECOGNITION_TARGET_DURATION_MS = recognitionTargetDurationMs;
     this._recognitionVolumeGate = new RecognitionVolumeGate({
       recognitionVolumeThreshold: this.THRESHOLD,
@@ -39,7 +45,9 @@ export class Vad {
 
   processFrame(pcmData) {
     const rms = calculateRms(pcmData);
-    const isRecognitionTarget = this._recognitionVolumeGate.processFrame(pcmData);
+    const isRecognitionTarget = this._isRecognitionVolumeGateDisabled
+      ? rms >= this.SPEECH_BOUNDARY_THRESHOLD
+      : this._recognitionVolumeGate.processFrame(pcmData);
     this._updateState(rms, isRecognitionTarget);
   }
 
@@ -49,10 +57,10 @@ export class Vad {
       clearTimeout(this._silenceTimer);
       this._silenceTimer = null;
       for (const cb of this._speechStartCallbacks) cb();
-    } else if (energy >= this.THRESHOLD && this._isSpeech) {
+    } else if (energy >= this.SPEECH_BOUNDARY_THRESHOLD && this._isSpeech) {
       clearTimeout(this._silenceTimer);
       this._silenceTimer = null;
-    } else if (energy < this.THRESHOLD && this._isSpeech) {
+    } else if (energy < this.SPEECH_BOUNDARY_THRESHOLD && this._isSpeech) {
       if (!this._silenceTimer) {
         this._silenceTimer = setTimeout(() => {
           this._isSpeech = false;
