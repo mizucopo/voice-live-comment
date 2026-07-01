@@ -14,9 +14,22 @@ describe('recognition-volume-gate', () => {
 
   it('認識音量しきい値を範囲内に正規化する', () => {
     expect(normalizeRecognitionVolumeThreshold(undefined)).toBe(DEFAULT_RECOGNITION_VOLUME_THRESHOLD);
+    expect(normalizeRecognitionVolumeThreshold(0)).toBe(0);
     expect(normalizeRecognitionVolumeThreshold(0.001)).toBe(0.01);
     expect(normalizeRecognitionVolumeThreshold(0.205)).toBe(0.2);
+    expect(formatRecognitionVolumeThreshold(0)).toBe('0.00');
     expect(formatRecognitionVolumeThreshold(0.1)).toBe('0.10');
+  });
+
+  it('0なら認識音量ゲートを無効化する', () => {
+    const gate = new RecognitionVolumeGate({
+      recognitionVolumeThreshold: 0,
+      recognitionTargetDurationMs: 200
+    });
+
+    expect(gate.hasRecentTargetSpeech()).toBe(true);
+    expect(gate.consumeRecentTargetSpeech()).toBe(true);
+    expect(gate.processFrame(new Float32Array(480).fill(0))).toBe(true);
   });
 
   it('しきい値以上の音量が200ms続くまで認識対象発話にしない', () => {

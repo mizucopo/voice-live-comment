@@ -21,6 +21,10 @@ export class SpeechVolumeMonitor {
   async start() {
     await this.stop();
 
+    if (this._gate.isDisabled) {
+      return;
+    }
+
     this._stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
     try {

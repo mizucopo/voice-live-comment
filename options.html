@@ -108,12 +108,12 @@
 
     <div class="form-group">
       <label for="recognitionVolumeThreshold">認識音量しきい値</label>
-      <input type="range" id="recognitionVolumeThreshold" min="0.01" max="0.20" step="0.01" value="0.08">
+      <input type="range" id="recognitionVolumeThreshold" min="0" max="0.20" step="0.01" value="0.08">
       <div class="setting-row">
         <span id="recognitionVolumeThresholdValue" class="setting-value">現在: 0.08 / デフォルト: 0.08</span>
         <button type="button" id="resetRecognitionVolumeThreshold">デフォルトに戻す</button>
       </div>
-      <div class="hint">値を上げるほど小さい声を拾いにくくなります</div>
+      <div class="hint">値を上げるほど小さい声を拾いにくくなります。0.00にすると音量による除外を行いません</div>
     </div>
 
     <div id="browserSettings">
