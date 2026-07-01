@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Voice Live Comment",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "description": "音声認識でYouTube Liveにコメント投稿",
   "permissions": [
     "storage",
