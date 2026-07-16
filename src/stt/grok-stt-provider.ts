@@ -62,7 +62,8 @@ export class GrokSttProvider extends SttProvider {
         throw new Error("Grok STTの変換に失敗しました");
       }
       if (!response.ok) {
-        throw new Error(response.error ? response.error : "Grok STTの変換に失敗しました");
+        if (response.error) throw new Error(response.error);
+        throw new Error("Grok STTの変換に失敗しました");
       }
 
       if (response.text) {
