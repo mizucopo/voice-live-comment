@@ -27,6 +27,12 @@ describe('release workflow', () => {
     expect(workflow).not.toMatch(/^  pull_request:/m);
   });
 
+  it('Dependabotのマージではリリースしない', () => {
+    expect(workflow).toContain(
+      "github.event.pull_request.user.login != 'dependabot[bot]'"
+    );
+  });
+
   it('リリースタグがマージコミットを指す場合は再実行できる', () => {
     for (const check of rerunTagChecks) {
       expect(workflow).toContain(check);
