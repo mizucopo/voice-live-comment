@@ -7,9 +7,19 @@ export function isTargetPage(url: unknown): boolean {
   if (!url || typeof url !== "string") {
     return false;
   }
-  return (
-    url.includes("youtube.com/watch") ||
-    url.includes("youtube.com/live") ||
-    url.includes("studio.youtube.com")
-  );
+
+  try {
+    const parsedUrl = new URL(url);
+    if (parsedUrl.hostname === "studio.youtube.com") {
+      return true;
+    }
+
+    const youtubeHosts = ["youtube.com", "www.youtube.com", "m.youtube.com"];
+    return (
+      youtubeHosts.includes(parsedUrl.hostname) &&
+      (parsedUrl.pathname.startsWith("/watch") || parsedUrl.pathname.startsWith("/live"))
+    );
+  } catch {
+    return false;
+  }
 }

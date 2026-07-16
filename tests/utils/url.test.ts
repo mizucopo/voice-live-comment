@@ -30,6 +30,15 @@ describe("isTargetPage", () => {
     expect(isTargetPage("https://m.youtube.com/watch?v=abc123")).toBe(true);
   });
 
+  it.each([
+    "https://example.com/studio.youtube.com/channel/123",
+    "https://studio.youtube.com.example.com/channel/123",
+    "https://studio.youtube.com@example.com/channel/123",
+    "https://example.com/?next=https://www.youtube.com/watch?v=abc123",
+  ])("許可ホスト名を埋め込んだURLに対してfalseを返す: %s", (url) => {
+    expect(isTargetPage(url)).toBe(false);
+  });
+
   it("null入力に対してfalseを返す", () => {
     expect(isTargetPage(null)).toBe(false);
   });
