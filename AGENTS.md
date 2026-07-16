@@ -26,26 +26,28 @@ git mv <old-path> <new-path>  # Move files
 git rm <path>                  # Delete files
 ```
 
-## Existing Chrome Extension Adoption Rules
+## Template-First Chrome Extension Rules
 
 ### WHY
 
-Keep shared template metadata while the existing JavaScript Manifest V3 extension remains the source of truth.
+Keep repository structure, quality gates, and release automation aligned with `mizucopo/repo-template` while preserving Voice Live Comment's product behavior.
 
 ### WHAT
 
-- Preserve existing `package.json`, `src/`, `test/`, `tests/`, root `manifest.json`, options page, build config, and release workflows unless the task explicitly asks to change them
-- Do not introduce the template starter TypeScript extension files during template updates
-- Keep runtime JavaScript in `src/`, generated extension output in `dist/`, and reusable logic in focused modules under `src/`
-- Keep the existing Manifest V3 build, release, and test flow authoritative
-- Treat `.node-version`, license metadata, and agent guidance as shared template-managed files
+- Treat the current `repo-template` Chrome Extension output as the default source for shared configuration, workflows, and repository layout
+- Keep product-specific behavior, dependencies, and observable tests while adapting them to template changes
+- Keep TypeScript source, `manifest.json`, the options page, styles, and icons under `src/`
+- Use `dist/` as the built Chrome extension root
+- Keep `package.json` and `src/manifest.json` versions equal
+- Every Pull Request targeting `main`, including Dependabot Pull Requests, must use a new extension version
+- A merge to `main` creates a distribution release using the raw `X.Y.Z` tag
 - Do not edit `dist/` manually
 
 ### HOW
 
-- Follow the repository-native JavaScript extension workflow already present in this project
-- Put Chrome API boundaries in entrypoints such as `background.js`, `content.js`, and `options.js`
+- Prefer accepting rendered template files unchanged; keep a project-specific difference only when Voice Live Comment requires it
+- Put Chrome API boundaries in entrypoints such as `background.ts`, `content.ts`, and `options.ts`
 - Test observable behavior through Vitest instead of generated JavaScript or private implementation details
 - Mock Chrome APIs only at entrypoint boundaries
-- Place tests in `test/` and mirror `src/` structure when practical
+- Place tests in `tests/` and mirror `src/` structure when practical
 - Run `npm run check` before handing off changes

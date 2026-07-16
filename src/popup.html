@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Voice Live Comment 設定</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <h1>設定</h1>
+
+    <div class="form-group">
+      <label for="sttProvider">STTプロバイダー</label>
+      <select id="sttProvider">
+        <option value="browser">ブラウザ音声認識</option>
+        <option value="google">Google Cloud STT</option>
+        <option value="grok">Grok STT</option>
+      </select>
+    </div>
+
+    <div class="provider-settings">
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="autoPost" checked />
+          自動投稿する
+        </label>
+        <div class="hint">オフの場合、テキストを入力欄に入れるだけで送信しません</div>
+      </div>
+
+      <div class="form-group">
+        <label for="language">言語コード</label>
+        <input
+          type="text"
+          id="language"
+          value="ja-JP"
+          placeholder="例: ja-JP, en-US, ko-KR, zh-CN"
+        />
+        <div class="hint">音声認識の言語を指定します</div>
+      </div>
+
+      <div class="form-group">
+        <label for="recognitionVolumeThreshold">認識音量しきい値</label>
+        <input
+          type="range"
+          id="recognitionVolumeThreshold"
+          min="0"
+          max="0.20"
+          step="0.01"
+          value="0.05"
+        />
+        <div class="setting-row">
+          <span id="recognitionVolumeThresholdValue" class="setting-value"
+            >現在: 0.05 / デフォルト: 0.05</span
+          >
+          <button type="button" id="resetRecognitionVolumeThreshold">デフォルトに戻す</button>
+        </div>
+        <div class="hint">
+          値を上げるほど小さい声を拾いにくくなります。0.00にすると音量による除外を行いません
+        </div>
+      </div>
+
+      <div id="browserSettings">
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="useLocalModel" />
+            オンデバイスモデルを使用（Chrome 138+）
+          </label>
+          <div class="hint">音声をローカルで処理します。初回はモデルのダウンロードが必要です</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="boostPhrases">ワードブースト</label>
+        <textarea id="boostPhrases" rows="3" placeholder="例: 配信名、よく使う言葉"></textarea>
+        <div class="hint">
+          認識優先度を上げたい言葉を1行に1つ入力（ブラウザのオンデバイスモデル、Grok STTで有効）
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="dictionary">カスタム辞書</label>
+        <textarea
+          id="dictionary"
+          rows="5"
+          placeholder="例:&#10;とーきょー→東京&#10;ぶろっこりー→ブロッコリー"
+        ></textarea>
+        <div class="hint">誤認識→正しい表記 の形式で1行に1つ入力してください</div>
+      </div>
+
+      <div id="googleSettings" style="display: none">
+        <div class="form-group">
+          <label for="googleApiKey">APIキー</label>
+          <input type="password" id="googleApiKey" placeholder="Google Cloud APIキー" />
+          <div class="hint">
+            <a href="https://console.cloud.google.com/apis/credentials" target="_blank"
+              >Google Cloud Console</a
+            >でAPIキーを作成してください。Speech-to-Text APIを有効化する必要があります。
+          </div>
+        </div>
+      </div>
+
+      <div id="grokSettings" style="display: none">
+        <div class="form-group">
+          <label for="xaiApiKey">xAI APIキー</label>
+          <input type="password" id="xaiApiKey" placeholder="xAI APIキー" />
+          <div class="hint">
+            <a href="https://console.x.ai/" target="_blank">xAI Console</a
+            >でAPIキーを作成してください。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button id="save">保存</button>
+    <div id="status" class="status"></div>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

@@ -1,23 +1,38 @@
 {
   "name": "voice-live-comment",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "音声認識でYouTube Liveにコメント投稿",
+  "private": true,
+  "author": "みず",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "rollup -c",
-    "check": "npm run test:run && npm run build",
+    "build": "npm run clean && tsc -p tsconfig.build.json && rollup -c && node scripts/copy-extension-assets.mjs",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm run test:run && npm run build",
+    "clean": "node scripts/clean-dist.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings=0",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-node-resolve": "^16.0.3",
+    "@types/chrome": "^0.2.0",
+    "@types/node": "^24.13.2",
     "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^10.5.0",
+    "globals": "^17.7.0",
     "jsdom": "^29.1.1",
+    "prettier": "^3.8.4",
     "rollup": "^4.62.2",
-    "vitest": "^4.1.8"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.62.0",
+    "vitest": "^4.1.9"
   },
   "dependencies": {
     "onnxruntime-web": "^1.27.0"

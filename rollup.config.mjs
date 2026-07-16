@@ -1,15 +1,12 @@
-import resolve from '@rollup/plugin-node-resolve';
-import commonjs from '@rollup/plugin-commonjs';
+import resolve from "@rollup/plugin-node-resolve";
+import commonjs from "@rollup/plugin-commonjs";
 
 export default {
-  input: 'src/content.js',
+  input: "dist/content.js",
   output: {
-    file: 'dist/content.js',
-    format: 'iife',
-    name: 'VoiceLiveComment'
+    file: "dist/content-script.js",
+    format: "iife",
+    name: "VoiceLiveComment",
   },
-  plugins: [
-    resolve({ browser: true }),
-    commonjs()
-  ]
+  plugins: [resolve({ browser: true }), commonjs()],
 };
