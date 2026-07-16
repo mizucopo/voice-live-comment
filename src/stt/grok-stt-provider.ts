@@ -58,12 +58,11 @@ export class GrokSttProvider extends SttProvider {
         boostPhrases: this.boostPhrases,
       });
 
-      if (!isGrokSttResponse(response) || !response.ok) {
-        throw new Error(
-          isGrokSttResponse(response) && response.error
-            ? response.error
-            : "Grok STTの変換に失敗しました",
-        );
+      if (!isGrokSttResponse(response)) {
+        throw new Error("Grok STTの変換に失敗しました");
+      }
+      if (!response.ok) {
+        throw new Error(response.error ? response.error : "Grok STTの変換に失敗しました");
       }
 
       if (response.text) {
