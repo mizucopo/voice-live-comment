@@ -1,0 +1,15 @@
+/**
+ * URLがYouTube Live/配信対象ページかどうかを判定
+ * @param {string} url - 判定対象のURL
+ * @returns {boolean} 対象ページならtrue
+ */
+export function isTargetPage(url: unknown): boolean {
+  if (!url || typeof url !== "string") {
+    return false;
+  }
+  return (
+    url.includes("youtube.com/watch") ||
+    url.includes("youtube.com/live") ||
+    url.includes("studio.youtube.com")
+  );
+}

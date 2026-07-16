@@ -18,21 +18,21 @@
 
 ### 対応ページ
 
-| ページ | URL |
-|--------|-----|
-| YouTube Live | `youtube.com/live/*`、`youtube.com/watch*` |
-| YouTube Studio | `studio.youtube.com/*` |
+| ページ         | URL                                        |
+| -------------- | ------------------------------------------ |
+| YouTube Live   | `youtube.com/live/*`、`youtube.com/watch*` |
+| YouTube Studio | `studio.youtube.com/*`                     |
 
 ## インストール（通常利用）
 
 通常利用では `npm install` や `npm run build` は不要です。
 
-1. [GitHub Releases](https://github.com/mizucopo/voice-live-comment/releases) から `voice-live-comment-vX.Y.Z.zip` をダウンロードします。
+1. [GitHub Releases](https://github.com/mizucopo/voice-live-comment/releases) から `chrome-extension-X.Y.Z.zip` をダウンロードします。
 2. zipファイルを展開します。
 3. Chromeで `chrome://extensions/` を開きます。
 4. 右上の「デベロッパーモード」をONにします。
 5. 「パッケージ化されていない拡張機能を読み込む」をクリックします。
-6. 展開した `voice-live-comment-vX.Y.Z` フォルダを選択します。
+6. 展開先にある `manifest.json` と同じフォルダを選択します。
 
 ## 開発中の動作検証
 
@@ -45,19 +45,32 @@ npm install
 npm run build
 ```
 
-ビルド後、Chromeで `chrome://extensions/` を開き、「パッケージ化されていない拡張機能を読み込む」からリポジトリのフォルダを選択します。
+ビルド後、Chromeで `chrome://extensions/` を開き、「パッケージ化されていない拡張機能を読み込む」からリポジトリ内の `dist/` を選択します。
 
-`src/content.js` またはそこから読み込まれるファイルを変更した場合は、動作確認前に再度ビルドしてください。
+`src/` または配布アセットを変更した場合は、動作確認前に再度ビルドしてください。
 
 ```bash
 npm run build
 ```
 
-テストを実行する場合:
+型チェック、Lint、フォーマット、テスト、ビルドをまとめて確認する場合:
 
 ```bash
-npm run test:run
+npm run check
 ```
+
+個別には `npm run typecheck`、`npm run lint`、`npm run test:run`、`npm run build` を利用できます。生成された `dist/` は直接編集しません。
+
+## バージョンとリリース
+
+- `package.json` と `src/manifest.json` のバージョンは常に一致させます。
+- `main` を対象にするすべてのPull Requestは、Dependabotを含め、新しいバージョンへ更新します。
+- `main` へのマージごとに `X.Y.Z` タグと配布版が作成されます。
+- 配布ZIP名は `chrome-extension-X.Y.Z.zip` です。
+
+## 設計資料
+
+- [テンプレート優先のChrome拡張レイアウト](docs/adr/0002-adopt-template-first-chrome-extension-layout.md)
 
 ## 使い方
 
@@ -69,26 +82,26 @@ npm run test:run
 
 ### バッジ状態
 
-| 状態 | バッジ | 色 |
-|------|--------|-----|
+| 状態   | バッジ   | 色     |
+| ------ | -------- | ------ |
 | 停止中 | （なし） | グレー |
-| 認識中 | ● | 緑 |
-| エラー | ✕ | 赤 |
+| 認識中 | ●        | 緑     |
+| エラー | ✕        | 赤     |
 
 ## 設定
 
 ツールバーの拡張機能アイコンを右クリックし、「オプション」から設定画面を開きます。
 
-| 設定項目 | デフォルト | 説明 |
-|---------|-----------|------|
-| 自動投稿する | ON | ONの場合は認識テキストを即座に送信し、OFFの場合は入力欄への反映のみ行います。 |
-| 言語コード | ja-JP | 音声認識の言語（例: `en-US`, `ko-KR`, `zh-CN`） |
-| STTプロバイダー | ブラウザ標準 | 音声をテキスト化するSTTプロバイダーを選択します。 |
-| 認識音量しきい値 | 0.05 | 値を上げるほど小さい声を拾いにくくなります。`0.00` にすると音量による除外を行いません。 |
-| ワードブースト | （なし） | 認識優先度を上げたい言葉を1行に1つ入力します。ブラウザのオンデバイスモデル、Grok STTで使用されます。 |
-| カスタム辞書 | （なし） | `誤認識→正しい表記` の形式で、認識後のテキストを置換します。 |
-| Google APIキー | （なし） | Google Cloud STT使用時のAPIキー |
-| xAI APIキー | （なし） | Grok STT使用時のAPIキー |
+| 設定項目         | デフォルト   | 説明                                                                                                 |
+| ---------------- | ------------ | ---------------------------------------------------------------------------------------------------- |
+| 自動投稿する     | ON           | ONの場合は認識テキストを即座に送信し、OFFの場合は入力欄への反映のみ行います。                        |
+| 言語コード       | ja-JP        | 音声認識の言語（例: `en-US`, `ko-KR`, `zh-CN`）                                                      |
+| STTプロバイダー  | ブラウザ標準 | 音声をテキスト化するSTTプロバイダーを選択します。                                                    |
+| 認識音量しきい値 | 0.05         | 値を上げるほど小さい声を拾いにくくなります。`0.00` にすると音量による除外を行いません。              |
+| ワードブースト   | （なし）     | 認識優先度を上げたい言葉を1行に1つ入力します。ブラウザのオンデバイスモデル、Grok STTで使用されます。 |
+| カスタム辞書     | （なし）     | `誤認識→正しい表記` の形式で、認識後のテキストを置換します。                                         |
+| Google APIキー   | （なし）     | Google Cloud STT使用時のAPIキー                                                                      |
+| xAI APIキー      | （なし）     | Grok STT使用時のAPIキー                                                                              |
 
 ## ライセンス
 

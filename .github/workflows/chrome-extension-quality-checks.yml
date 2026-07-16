@@ -1,0 +1,106 @@
+name: Chrome Extension Quality Checks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chrome-extension-quality-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Run ESLint
+        id: eslint
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Run Prettier check
+        id: prettier
+        continue-on-error: true
+        run: npm run format:check
+
+      - name: Run optional TypeScript typecheck
+        id: typecheck
+        continue-on-error: true
+        run: npm run typecheck --if-present
+
+      - name: Run Vitest
+        id: vitest
+        continue-on-error: true
+        timeout-minutes: 10
+        run: npm run test:run
+
+      - name: Run extension build
+        id: build
+        continue-on-error: true
+        run: npm run build
+
+      - name: Build Chrome extension quality check summary
+        id: chrome-quality-report
+        if: ${{ !cancelled() }}
+        env:
+          ESLINT_OUTCOME: ${{ steps.eslint.outcome }}
+          PRETTIER_OUTCOME: ${{ steps.prettier.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          VITEST_OUTCOME: ${{ steps.vitest.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          format_result() {
+            case "$1" in
+              success) printf '✅ 成功' ;;
+              failure) printf '❌ 失敗' ;;
+              skipped) printf '⏭️ スキップ' ;;
+              *) printf '❓ %s' "${1:-unknown}" ;;
+            esac
+          }
+
+          cat > chrome_quality_report.md <<EOF
+          ## Chrome Extension Quality Checks Result
+
+          | Item | Result |
+          |-------------|------|
+          | ESLint | $(format_result "$ESLINT_OUTCOME") |
+          | Prettier | $(format_result "$PRETTIER_OUTCOME") |
+          | TypeScript | $(format_result "$TYPECHECK_OUTCOME") |
+          | Vitest | $(format_result "$VITEST_OUTCOME") |
+          | Build | $(format_result "$BUILD_OUTCOME") |
+          EOF
+
+          cat chrome_quality_report.md >> "$GITHUB_STEP_SUMMARY"
+
+          HAS_FAILURE=false
+          for outcome in \
+            "$ESLINT_OUTCOME" \
+            "$PRETTIER_OUTCOME" \
+            "$TYPECHECK_OUTCOME" \
+            "$VITEST_OUTCOME" \
+            "$BUILD_OUTCOME"; do
+            if [ "$outcome" != "success" ]; then
+              HAS_FAILURE=true
+            fi
+          done
+          echo "has-failure=$HAS_FAILURE" >> "$GITHUB_OUTPUT"
+
+      - name: Enforce quality gate result
+        if: ${{ !cancelled() && steps.chrome-quality-report.outputs.has-failure == 'true' }}
+        run: |
+          echo "::error::One or more Chrome extension quality checks failed or were skipped."
+          exit 1
