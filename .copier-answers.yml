@@ -7,7 +7,7 @@ chrome_extension_release_notes: Chrome Extension distribution package for {versi
 chrome_extension_release_package_root_directory: .
 chrome_extension_release_title: Chrome Extension {version}
 chrome_extension_release_zip_name: chrome-extension-{version}.zip
-chrome_extension_version: 1.4.1
+chrome_extension_version: 1.5.0
 node_version: '24'
 use_chrome_extension: true
 use_docker: false
