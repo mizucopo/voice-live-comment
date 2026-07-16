@@ -12,14 +12,14 @@
     "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^29.0.2",
+    "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-node-resolve": "^16.0.3",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.10",
     "jsdom": "^29.1.1",
-    "rollup": "^4.60.1",
+    "rollup": "^4.62.2",
     "vitest": "^4.1.8"
   },
   "dependencies": {
-    "onnxruntime-web": "^1.26.0"
+    "onnxruntime-web": "^1.27.0"
   }
 }
