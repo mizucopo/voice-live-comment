@@ -1,6 +1,6 @@
 {
   "name": "voice-live-comment",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "音声認識でYouTube Liveにコメント投稿",
   "license": "MIT",
   "type": "module",

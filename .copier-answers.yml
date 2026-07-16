@@ -3,7 +3,7 @@ _src_path: git@github.com:mizucopo/repo-template.git
 author_name: みず
 chrome_extension_description: 音声認識でYouTube Liveにコメント投稿
 chrome_extension_name: Voice Live Comment
-chrome_extension_version: 1.4.0
+chrome_extension_version: 1.4.1
 node_version: '22'
 use_chrome_extension: true
 use_docker: false
