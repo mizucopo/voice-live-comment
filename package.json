@@ -1,6 +1,6 @@
 {
   "name": "voice-live-comment",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "description": "音声認識でYouTube Liveにコメント投稿",
   "private": true,
   "author": "みず",
@@ -27,7 +27,7 @@
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.8.0",
     "globals": "^17.8.0",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.0.0",
     "prettier": "^3.9.6",
     "rollup": "^4.62.3",
     "typescript": "^6.0.3",
