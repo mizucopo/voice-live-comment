@@ -37,7 +37,9 @@ describe("Chrome拡張のGitHub Actions", () => {
     expect(releaseWorkflow).toContain(
       "if: steps.release-state.outputs.release_asset_exists != 'true'",
     );
-    expect(releaseWorkflow).toContain('gh release upload "$TAG" "$ZIP_PATH"');
+    expect(releaseWorkflow).toContain('gh release create "$TAG" "$ZIP_PATH"');
+    expect(releaseWorkflow).toContain("Reject incomplete immutable release");
+    expect(releaseWorkflow).not.toContain("gh release upload");
     expect(assetCopyScript).toContain(
       'cp(new URL("LICENSE", projectRoot), new URL("LICENSE", distRoot))',
     );
