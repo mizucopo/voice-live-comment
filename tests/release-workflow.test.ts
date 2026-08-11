@@ -28,13 +28,16 @@ describe("Chrome拡張のGitHub Actions", () => {
   it("v接頭辞なしのバージョンタグと標準ZIP名を使う", () => {
     expect(releaseWorkflow).toContain('setOutput("tag", packageVersion)');
     expect(releaseWorkflow).toContain('const zipNameTemplate = "chrome-extension-{version}.zip"');
-    expect(tagCheckWorkflow).toContain('git rev-parse "${{ steps.version.outputs.version }}"');
+    expect(tagCheckWorkflow).toContain('git show-ref --tags --verify --quiet "refs/tags/$VERSION"');
   });
 
   it("distを品質確認して配布し、MITライセンスを同梱する", () => {
     expect(releaseWorkflow).toContain("run: npm run check");
     expect(releaseWorkflow).toContain("if [ -f dist/manifest.json ]; then");
-    expect(releaseWorkflow).toContain('gh release upload "$TAG" "$ZIP_PATH" --clobber');
+    expect(releaseWorkflow).toContain(
+      "if: steps.release-state.outputs.release_asset_exists != 'true'",
+    );
+    expect(releaseWorkflow).toContain('gh release upload "$TAG" "$ZIP_PATH"');
     expect(assetCopyScript).toContain(
       'cp(new URL("LICENSE", projectRoot), new URL("LICENSE", distRoot))',
     );
