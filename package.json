@@ -22,19 +22,19 @@
     "@eslint/js": "^10.0.1",
     "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-node-resolve": "^16.0.3",
-    "@types/chrome": "^0.2.5",
+    "@types/chrome": "^0.2.7",
     "@types/node": "^24.13.3",
-    "@vitest/coverage-v8": "^4.1.10",
-    "eslint": "^10.8.1",
-    "globals": "^17.9.0",
+    "@vitest/coverage-v8": "^4.1.11",
+    "eslint": "^10.9.1",
+    "globals": "^17.11.0",
     "jsdom": "^30.0.1",
     "prettier": "^3.9.6",
-    "rollup": "^4.62.4",
+    "rollup": "^4.63.1",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.67.0",
+    "typescript-eslint": "^8.68.0",
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "onnxruntime-web": "^1.27.0"
+    "onnxruntime-web": "^1.29.0"
   }
 }
