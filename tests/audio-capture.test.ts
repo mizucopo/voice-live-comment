@@ -5,13 +5,13 @@ import { AudioCapture, type RecordingFormat } from "../src/audio-capture.js";
 import { mockGetUserMedia } from "./setup.js";
 
 type TestMediaRecorder = MediaRecorder & {
-  _simulateChunk: (data: BlobPart, options?: { timecode?: number }) => void;
+  simulateChunk: (data: BlobPart, options?: { timecode?: number }) => void;
 };
 type TestAudioContext = Omit<AudioContext, "sampleRate"> & { sampleRate: number };
 type TestAudioCapture = Omit<AudioCapture, "audioContext" | "mediaRecorder"> & {
   readonly audioContext: TestAudioContext;
   readonly mediaRecorder: TestMediaRecorder;
-  readonly _scriptProcessor: ScriptProcessorNode;
+  readonly scriptProcessor: ScriptProcessorNode;
 };
 
 function createAudioCapture(recordingFormat: RecordingFormat = "webm"): TestAudioCapture {
@@ -28,7 +28,7 @@ describe("AudioCapture", () => {
 
   function simulateChunkAt(ms: number, data: BlobPart, timecode: number = ms): void {
     vi.setSystemTime(ms);
-    capture.mediaRecorder._simulateChunk(data, { timecode });
+    capture.mediaRecorder.simulateChunk(data, { timecode });
   }
 
   async function startCaptureAt(ms: number): Promise<void> {
@@ -53,7 +53,7 @@ describe("AudioCapture", () => {
   }
 
   function processPcmFrame(samples: Iterable<number>): void {
-    capture._scriptProcessor.onaudioprocess?.({
+    capture.scriptProcessor.onaudioprocess?.({
       inputBuffer: {
         getChannelData: () => Float32Array.from(samples),
       },
@@ -104,8 +104,8 @@ describe("AudioCapture", () => {
     await capture.start();
 
     capture.startRecording();
-    capture.mediaRecorder._simulateChunk("audio-data-1");
-    capture.mediaRecorder._simulateChunk("audio-data-2");
+    capture.mediaRecorder.simulateChunk("audio-data-1");
+    capture.mediaRecorder.simulateChunk("audio-data-2");
     const blob = capture.stopRecording();
 
     expect(blob).toBeInstanceOf(Blob);
@@ -266,7 +266,7 @@ describe("AudioCapture", () => {
       simulateChunkAt(500, "previous-comment|", 250);
       const previousRecorder = markBoundaryAt(1000);
       vi.setSystemTime(1200);
-      previousRecorder._simulateChunk("delayed-previous-comment|", { timecode: 750 });
+      previousRecorder.simulateChunk("delayed-previous-comment|", { timecode: 750 });
       simulateChunkAt(1500, "next-pre-roll|", 1250);
 
       vi.setSystemTime(1600);
@@ -353,7 +353,7 @@ describe("AudioCapture", () => {
       vi.setSystemTime(1200);
       capture.startRecording();
       vi.setSystemTime(1300);
-      previousRecorder._simulateChunk("delayed-previous-comment|", { timecode: 750 });
+      previousRecorder.simulateChunk("delayed-previous-comment|", { timecode: 750 });
       simulateChunkAt(1500, "next-audio|", 1250);
       const blob = capture.stopRecording();
 

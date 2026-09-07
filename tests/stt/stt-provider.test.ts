@@ -18,8 +18,8 @@ describe("SttProvider", () => {
     const onError = vi.fn();
     provider.onResult(onResult);
     provider.onError(onError);
-    provider._emitResult("hello");
-    provider._emitError(new Error("test"));
+    provider.emitResult("hello");
+    provider.emitError(new Error("test"));
     expect(onResult).toHaveBeenCalledWith("hello");
     expect(onError).toHaveBeenCalledWith(expect.any(Error));
   });

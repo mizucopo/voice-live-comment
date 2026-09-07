@@ -60,8 +60,8 @@ const SpeechRecognitionPhrase = speechRecognitionGlobal.SpeechRecognitionPhrase;
 
 export class BrowserSttProvider extends SttProvider {
   settings: BrowserSttSettings;
-  private readonly _SpeechVolumeMonitorClass: SpeechVolumeMonitorConstructor;
-  private _speechVolumeMonitor: SpeechVolumeMonitorPort | null;
+  private readonly SpeechVolumeMonitorClass: SpeechVolumeMonitorConstructor;
+  private speechVolumeMonitor: SpeechVolumeMonitorPort | null;
   readonly recognitions: (SpeechRecognitionLike | null)[];
   activeIndex: number;
   nextPreStarted: boolean;
@@ -69,7 +69,7 @@ export class BrowserSttProvider extends SttProvider {
   hasFallbackFromLocal: boolean;
   isInitialStart: boolean;
   startTimeoutId: ReturnType<typeof setTimeout> | null;
-  private _speechVolumeMonitorGeneration: number;
+  private speechVolumeMonitorGeneration: number;
 
   constructor(
     settings: BrowserSttSettings,
@@ -79,8 +79,8 @@ export class BrowserSttProvider extends SttProvider {
   ) {
     super();
     this.settings = settings;
-    this._SpeechVolumeMonitorClass = SpeechVolumeMonitorClass;
-    this._speechVolumeMonitor = null;
+    this.SpeechVolumeMonitorClass = SpeechVolumeMonitorClass;
+    this.speechVolumeMonitor = null;
     this.recognitions = [null, null];
     this.activeIndex = 0;
     this.nextPreStarted = false;
@@ -88,12 +88,12 @@ export class BrowserSttProvider extends SttProvider {
     this.hasFallbackFromLocal = false;
     this.isInitialStart = true;
     this.startTimeoutId = null;
-    this._speechVolumeMonitorGeneration = 0;
+    this.speechVolumeMonitorGeneration = 0;
   }
 
   override async start(): Promise<void> {
     if (!SpeechRecognitionClass) {
-      this._emitError(new Error("このブラウザは音声認識に対応していません"));
+      this.emitError(new Error("このブラウザは音声認識に対応していません"));
       return;
     }
 
@@ -107,9 +107,7 @@ export class BrowserSttProvider extends SttProvider {
       const ready = await this.ensureOnDeviceModel();
       if (!ready) {
         this.settings = { ...this.settings, useLocalModel: false };
-        this._emitError(
-          new Error("オンデバイスモデルが利用できないため、クラウド認識を使用します"),
-        );
+        this.emitError(new Error("オンデバイスモデルが利用できないため、クラウド認識を使用します"));
       }
     }
 
@@ -150,40 +148,37 @@ export class BrowserSttProvider extends SttProvider {
     }
 
     await this.stopSpeechVolumeMonitor();
-    this._emitStop();
+    this.emitStop();
   }
 
   async startSpeechVolumeMonitor(): Promise<boolean> {
     await this.stopSpeechVolumeMonitor();
 
-    const generation = ++this._speechVolumeMonitorGeneration;
-    const monitor = new this._SpeechVolumeMonitorClass({
+    const generation = ++this.speechVolumeMonitorGeneration;
+    const monitor = new this.SpeechVolumeMonitorClass({
       recognitionVolumeThreshold: this.settings.recognitionVolumeThreshold,
     });
-    this._speechVolumeMonitor = monitor;
+    this.speechVolumeMonitor = monitor;
 
     try {
       await monitor.start();
     } catch (error) {
       if (
-        this._speechVolumeMonitor !== monitor ||
-        this._speechVolumeMonitorGeneration !== generation
+        this.speechVolumeMonitor !== monitor ||
+        this.speechVolumeMonitorGeneration !== generation
       ) {
         await monitor.stop();
         return false;
       }
 
-      this._speechVolumeMonitor = null;
+      this.speechVolumeMonitor = null;
       await monitor.stop();
       throw error;
     }
 
-    if (
-      this._speechVolumeMonitor !== monitor ||
-      this._speechVolumeMonitorGeneration !== generation
-    ) {
-      if (this._speechVolumeMonitor === monitor) {
-        this._speechVolumeMonitor = null;
+    if (this.speechVolumeMonitor !== monitor || this.speechVolumeMonitorGeneration !== generation) {
+      if (this.speechVolumeMonitor === monitor) {
+        this.speechVolumeMonitor = null;
       }
       await monitor.stop();
       return false;
@@ -193,11 +188,11 @@ export class BrowserSttProvider extends SttProvider {
   }
 
   async stopSpeechVolumeMonitor(): Promise<void> {
-    this._speechVolumeMonitorGeneration++;
-    if (!this._speechVolumeMonitor) return;
+    this.speechVolumeMonitorGeneration++;
+    if (!this.speechVolumeMonitor) return;
 
-    const monitor = this._speechVolumeMonitor;
-    this._speechVolumeMonitor = null;
+    const monitor = this.speechVolumeMonitor;
+    this.speechVolumeMonitor = null;
     await monitor.stop();
   }
 
@@ -226,7 +221,7 @@ export class BrowserSttProvider extends SttProvider {
     rec.onstart = () => {
       this.clearStartTimeout();
       if (this.isInitialStart) {
-        this._emitStart();
+        this.emitStart();
         this.isInitialStart = false;
       }
     };
@@ -245,7 +240,7 @@ export class BrowserSttProvider extends SttProvider {
         }
       }
       if (finalText && this.consumeRecentTargetSpeech()) {
-        this._emitResult(finalText);
+        this.emitResult(finalText);
       }
       if (hasFinal && index === this.activeIndex) {
         this.preStartNextInstance();
@@ -265,11 +260,11 @@ export class BrowserSttProvider extends SttProvider {
           this.fallbackToCloud(index, event.error);
           return;
         }
-        this._emitError(new Error("マイクへのアクセスが拒否されました"));
+        this.emitError(new Error("マイクへのアクセスが拒否されました"));
         void this.stop();
         return;
       }
-      this._emitError(new Error(event.error));
+      this.emitError(new Error(event.error));
       console.warn("[BrowserSttProvider] 認識エラー:", event.error);
     };
 
@@ -295,11 +290,11 @@ export class BrowserSttProvider extends SttProvider {
   }
 
   hasRecentTargetSpeech(): boolean {
-    return this._speechVolumeMonitor?.hasRecentTargetSpeech() === true;
+    return this.speechVolumeMonitor?.hasRecentTargetSpeech() === true;
   }
 
   consumeRecentTargetSpeech(): boolean {
-    return this._speechVolumeMonitor?.consumeRecentTargetSpeech() === true;
+    return this.speechVolumeMonitor?.consumeRecentTargetSpeech() === true;
   }
 
   startInstance(index: number): void {
@@ -357,7 +352,7 @@ export class BrowserSttProvider extends SttProvider {
 
     this.startInstance(0);
 
-    this._emitError(
+    this.emitError(
       new Error(`オンデバイス認識が利用できないため、クラウド認識に切り替えました (${reason})`),
     );
   }

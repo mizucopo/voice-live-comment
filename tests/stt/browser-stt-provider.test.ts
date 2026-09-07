@@ -46,8 +46,8 @@ describe("BrowserSttProvider", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    global.MockSpeechRecognition._instances.length = 0;
-    global.MockSpeechRecognition._startShouldThrow = null;
+    global.MockSpeechRecognition.instances.length = 0;
+    global.MockSpeechRecognition.startShouldThrow = null;
     monitorInstances = [] as unknown as IndexableArray<TestMonitor>;
 
     settings = {
@@ -62,7 +62,7 @@ describe("BrowserSttProvider", () => {
   it("start() でSpeechRecognitionインスタンスを1つ作成する", async () => {
     await provider.start();
     expect(global.webkitSpeechRecognition).toHaveBeenCalled();
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     expect(instances.length).toBe(1);
   });
 
@@ -70,7 +70,7 @@ describe("BrowserSttProvider", () => {
     settings.language = "en-US";
     provider = createProvider();
     await provider.start();
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     expect(instances[0].lang).toBe("en-US");
   });
 
@@ -78,7 +78,7 @@ describe("BrowserSttProvider", () => {
     settings.useLocalModel = true;
     provider = createProvider();
     await provider.start();
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     expect(instances[0].processLocally).toBe(true);
   });
 
@@ -146,7 +146,7 @@ describe("BrowserSttProvider", () => {
     provider.onResult(onResult);
     await provider.start();
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     instances[0].onresult({
       resultIndex: 0,
       results: [{ isFinal: true, 0: { transcript: "こんにちは" } }],
@@ -161,7 +161,7 @@ describe("BrowserSttProvider", () => {
     await provider.start();
     monitorInstances[0].consumeRecentTargetSpeech.mockReturnValue(false);
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     instances[0].onresult({
       resultIndex: 0,
       results: [{ isFinal: true, 0: { transcript: "ボソボソ" } }],
@@ -178,7 +178,7 @@ describe("BrowserSttProvider", () => {
       .mockReturnValueOnce(true)
       .mockReturnValueOnce(false);
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     instances[0].onresult({
       resultIndex: 0,
       results: [{ isFinal: true, 0: { transcript: "しっかり発話" } }],
@@ -198,7 +198,7 @@ describe("BrowserSttProvider", () => {
     provider.onStart(onStart);
     await provider.start();
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     instances[0].onstart();
     expect(onStart).toHaveBeenCalled();
   });
@@ -208,7 +208,7 @@ describe("BrowserSttProvider", () => {
     provider.onError(onError);
     await provider.start();
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     instances[0].onerror({ error: "network" });
     expect(onError).toHaveBeenCalledWith(expect.any(Error));
   });
@@ -220,7 +220,7 @@ describe("BrowserSttProvider", () => {
     provider.onError(onError);
     await provider.start();
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     expect(instances[0].processLocally).toBe(true);
     instances[0].onerror({ error: "not-allowed" });
 
@@ -235,7 +235,7 @@ describe("BrowserSttProvider", () => {
     provider.onResult(onResult);
     await provider.start();
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     const oldRec = instances[0];
 
     // インスタンス0を startInstance(0) で差し替え
@@ -268,7 +268,7 @@ describe("BrowserSttProvider", () => {
     provider.onError(onError);
     await provider.start();
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
 
     // インスタンス0開始
     instances[0].onstart();
@@ -301,7 +301,7 @@ describe("BrowserSttProvider", () => {
     provider.onError(onError);
     await provider.start();
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     instances[0].onerror({ error: "not-allowed" });
 
     expect(onError).toHaveBeenCalled();
@@ -316,7 +316,7 @@ describe("BrowserSttProvider", () => {
     provider.onError(onError);
     await provider.start();
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     instances[0].onstart();
 
     await provider.stop();
@@ -330,7 +330,7 @@ describe("BrowserSttProvider", () => {
     provider.onError(onError);
     await provider.start();
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     instances[0].onstart();
     const oldRec = instances[0];
 
@@ -347,7 +347,7 @@ describe("BrowserSttProvider", () => {
     provider.onError(onError);
     await provider.start();
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     instances[0].onstart();
 
     // preStartNextInstance → instances[1] 作成
@@ -374,7 +374,7 @@ describe("BrowserSttProvider", () => {
     provider.onError(onError);
     await provider.start();
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     instances[0].onstart();
     const rec = instances[0];
     rec.stop = () => {
@@ -390,7 +390,7 @@ describe("BrowserSttProvider", () => {
     provider.onError(onError);
     await provider.start();
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     instances[0].onstart();
     const oldRec = instances[0];
     oldRec.stop = () => {
@@ -408,7 +408,7 @@ describe("BrowserSttProvider", () => {
     provider.onError(onError);
     await provider.start();
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     instances[0].onstart();
 
     // preStartNextInstance → instances[1] 作成
@@ -436,7 +436,7 @@ describe("BrowserSttProvider", () => {
     provider.onError(onError);
     await provider.start();
 
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     instances[0].onstart();
 
     instances[0].onerror({ error: "no-speech" });
@@ -448,7 +448,7 @@ describe("BrowserSttProvider", () => {
 
   it("stop() で全インスタンスが停止する", async () => {
     await provider.start();
-    const instances = global.MockSpeechRecognition._instances;
+    const instances = global.MockSpeechRecognition.instances;
     expect(instances.length).toBe(1);
 
     await provider.stop();

@@ -35,7 +35,7 @@ export class GrokSttProvider extends SttProvider {
   }
 
   override start(): Promise<void> {
-    this._emitStart();
+    this.emitStart();
     return Promise.resolve();
   }
 
@@ -45,7 +45,7 @@ export class GrokSttProvider extends SttProvider {
 
   override async sendAudio(audioBlob: Blob): Promise<void> {
     if (!this.apiKey) {
-      this._emitError(new Error("xAI APIキーが設定されていません。設定画面で入力してください。"));
+      this.emitError(new Error("xAI APIキーが設定されていません。設定画面で入力してください。"));
       return;
     }
 
@@ -67,10 +67,10 @@ export class GrokSttProvider extends SttProvider {
       }
 
       if (response.text) {
-        this._emitResult(response.text);
+        this.emitResult(response.text);
       }
     } catch (error) {
-      this._emitError(error instanceof Error ? error : new Error(String(error)));
+      this.emitError(error instanceof Error ? error : new Error(String(error)));
     }
   }
 }

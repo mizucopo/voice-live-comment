@@ -17,7 +17,7 @@ function getMessageListener(index = 0): RuntimeMessageListener {
 }
 
 function latestSpeechRecognition(): MockSpeechRecognition {
-  const instance = global.MockSpeechRecognition._instances.at(-1);
+  const instance = global.MockSpeechRecognition.instances.at(-1);
   if (!instance) throw new Error("音声認識モックが作成されていません");
   return instance;
 }
@@ -161,7 +161,7 @@ describe("content.js", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       // 新しい SpeechRecognition インスタンスの onstart を発火
-      const newSrInstance = global.MockSpeechRecognition._instances.at(-1);
+      const newSrInstance = global.MockSpeechRecognition.instances.at(-1);
       if (newSrInstance && newSrInstance !== srInstance) {
         newSrInstance.onstart();
       }
@@ -386,7 +386,7 @@ describe("content.js", () => {
             }
 
             override start(): Promise<void> {
-              this._emitStart();
+              this.emitStart();
               return Promise.resolve();
             }
 

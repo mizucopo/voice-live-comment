@@ -68,8 +68,8 @@ export type IndexableArray<T> = [T, T, ...T[]];
 export const mockInstances = [] as unknown as IndexableArray<MockSpeechRecognition>;
 
 export class MockSpeechRecognition {
-  static _instances: typeof mockInstances = mockInstances;
-  static _startShouldThrow: Error | null = null;
+  static instances: typeof mockInstances = mockInstances;
+  static startShouldThrow: Error | null = null;
 
   lang: string;
   continuous: boolean;
@@ -96,9 +96,9 @@ export class MockSpeechRecognition {
     mockInstances.push(this);
   }
   start() {
-    if (MockSpeechRecognition._startShouldThrow) {
-      const error = MockSpeechRecognition._startShouldThrow;
-      MockSpeechRecognition._startShouldThrow = null;
+    if (MockSpeechRecognition.startShouldThrow) {
+      const error = MockSpeechRecognition.startShouldThrow;
+      MockSpeechRecognition.startShouldThrow = null;
       throw error;
     }
   }
@@ -141,7 +141,7 @@ export class MockMediaRecorder {
   ondataavailable: ((event: { data: Blob; timecode?: number }) => void) | null;
   onstop: (() => void) | null;
   requestData: ReturnType<typeof vi.fn>;
-  _timeslice: number | undefined;
+  timeslice: number | undefined;
 
   constructor(stream: MediaStream, options?: MediaRecorderOptions) {
     this.stream = stream;
@@ -153,12 +153,12 @@ export class MockMediaRecorder {
   }
   start(timeslice?: number): void {
     this.state = "recording";
-    this._timeslice = timeslice;
+    this.timeslice = timeslice;
   }
   stop(): void {
     this.state = "inactive";
   }
-  _simulateChunk(data: BlobPart, options: { timecode?: number } = {}): void {
+  simulateChunk(data: BlobPart, options: { timecode?: number } = {}): void {
     if (this.ondataavailable) {
       this.ondataavailable({
         data: new Blob([data], { type: "audio/webm;codecs=opus" }),
@@ -188,11 +188,11 @@ export class MockAudioContext {
     this.sampleRate = 48000;
     this.state = "running";
   }
-  createMediaStreamSource(_stream: MediaStream): {
+  createMediaStreamSource(stream: MediaStream): {
     connect: ReturnType<typeof vi.fn>;
     disconnect: ReturnType<typeof vi.fn>;
   } {
-    void _stream;
+    void stream;
     return {
       connect: vi.fn(),
       disconnect: vi.fn(),
@@ -278,7 +278,7 @@ beforeEach(() => {
 
   // Reset instance tracking
   mockInstances.length = 0;
-  MockSpeechRecognition._startShouldThrow = null;
+  MockSpeechRecognition.startShouldThrow = null;
   mockSRConstructor.available.mockResolvedValue("available");
   mockSRConstructor.install.mockResolvedValue(undefined);
 

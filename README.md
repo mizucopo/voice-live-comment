@@ -61,12 +61,15 @@ npm run check
 
 個別には `npm run typecheck`、`npm run lint`、`npm run test:run`、`npm run build` を利用できます。生成された `dist/` は直接編集しません。
 
+開発ツールはNode.js 24、TypeScript 7、Oxlint、Prettier、Vitestを使用します。`npm run lint` は型情報を使ったOxlintの検査を実行します。
+
 ## バージョンとリリース
 
 - `package.json` と `src/manifest.json` のバージョンは常に一致させます。
 - `main` を対象にするすべてのPull Requestは、Dependabotを含め、新しいバージョンへ更新します。
 - `main` へのマージごとに `X.Y.Z` タグと配布版が作成されます。
 - 配布ZIP名は `chrome-extension-X.Y.Z.zip` です。
+- 完了済みリリースのうち、`main` の履歴で最も新しいものをGitHub ReleasesのLatestに指定します。古いリリースの再実行ではLatestを巻き戻しません。
 
 ## 設計資料
 

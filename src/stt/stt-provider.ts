@@ -6,16 +6,16 @@ export type SttLifecycleCallback = () => void;
 
 export class SttProvider {
   recordingFormat: RecordingFormat = "webm";
-  readonly _resultCallbacks: SttResultCallback[];
-  readonly _errorCallbacks: SttErrorCallback[];
-  readonly _startCallbacks: SttLifecycleCallback[];
-  readonly _stopCallbacks: SttLifecycleCallback[];
+  readonly resultCallbacks: SttResultCallback[];
+  readonly errorCallbacks: SttErrorCallback[];
+  readonly startCallbacks: SttLifecycleCallback[];
+  readonly stopCallbacks: SttLifecycleCallback[];
 
   constructor() {
-    this._resultCallbacks = [];
-    this._errorCallbacks = [];
-    this._startCallbacks = [];
-    this._stopCallbacks = [];
+    this.resultCallbacks = [];
+    this.errorCallbacks = [];
+    this.startCallbacks = [];
+    this.stopCallbacks = [];
   }
 
   start(): Promise<void> {
@@ -32,34 +32,34 @@ export class SttProvider {
   }
 
   onResult(callback: SttResultCallback): void {
-    this._resultCallbacks.push(callback);
+    this.resultCallbacks.push(callback);
   }
 
   onError(callback: SttErrorCallback): void {
-    this._errorCallbacks.push(callback);
+    this.errorCallbacks.push(callback);
   }
 
   onStart(callback: SttLifecycleCallback): void {
-    this._startCallbacks.push(callback);
+    this.startCallbacks.push(callback);
   }
 
   onStop(callback: SttLifecycleCallback): void {
-    this._stopCallbacks.push(callback);
+    this.stopCallbacks.push(callback);
   }
 
-  _emitResult(text: string): void {
-    for (const cb of this._resultCallbacks) cb(text);
+  emitResult(text: string): void {
+    for (const cb of this.resultCallbacks) cb(text);
   }
 
-  _emitError(error: Error): void {
-    for (const cb of this._errorCallbacks) cb(error);
+  emitError(error: Error): void {
+    for (const cb of this.errorCallbacks) cb(error);
   }
 
-  _emitStart(): void {
-    for (const cb of this._startCallbacks) cb();
+  emitStart(): void {
+    for (const cb of this.startCallbacks) cb();
   }
 
-  _emitStop(): void {
-    for (const cb of this._stopCallbacks) cb();
+  emitStop(): void {
+    for (const cb of this.stopCallbacks) cb();
   }
 }
