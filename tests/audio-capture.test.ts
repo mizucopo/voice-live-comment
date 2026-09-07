@@ -129,6 +129,30 @@ describe("AudioCapture", () => {
     expect(view.getInt16(pcmLeadingSilenceBytes + 4, true)).toBe(16383);
   });
 
+  it.each([44100, 48000])(
+    "%iHzの録音とVAD用PCMでフレーム間のサンプル数を保つ",
+    async (inputRate) => {
+      capture = createAudioCapture("pcm16");
+      const frames: Float32Array[] = [];
+      capture.onPcmData((frame) => frames.push(frame));
+      await capture.start();
+      capture.audioContext.sampleRate = inputRate;
+      capture.startRecording();
+
+      const input = Float32Array.from(
+        { length: inputRate },
+        (_, i) => 0.1 * Math.sin((2 * Math.PI * 1000 * i) / inputRate),
+      );
+      for (let offset = 0; offset < input.length; offset += 4096) {
+        processPcmFrame(input.subarray(offset, offset + 4096));
+      }
+
+      expect(frames.reduce((count, frame) => count + frame.length, 0)).toBe(16000);
+      expect(capture.stopRecording().size).toBe(pcmLeadingSilenceBytes + 32000);
+      await capture.stop();
+    },
+  );
+
   it("PCM録音形式は即座に話し始めても発話冒頭の前に無音を含める", async () => {
     capture = createAudioCapture("pcm16");
     await capture.start();
@@ -368,6 +392,26 @@ describe("AudioCapture", () => {
     expect(capture.audioContext.state).toBe("closed");
   });
 
+  it("停止して再開した録音に前回の音声変換状態を混ぜない", async () => {
+    capture = createAudioCapture("pcm16");
+    const frames: Float32Array[] = [];
+    capture.onPcmData((frame) => frames.push(frame));
+    await capture.start();
+    processPcmFrame(new Float32Array(4096).fill(0.5));
+    await capture.stop();
+
+    frames.length = 0;
+    await capture.start();
+    capture.startRecording();
+    processPcmFrame(new Float32Array(600));
+
+    expect(frames).toEqual([new Float32Array(200)]);
+    const view = new DataView(await capture.stopRecording().arrayBuffer());
+    expect(view.byteLength).toBe(pcmLeadingSilenceBytes + 400);
+    expect(new Uint8Array(view.buffer).every((byte) => byte === 0)).toBe(true);
+    await capture.stop();
+  });
+
   it("16kHzへのリサンプリングが正しく動作する", () => {
     const inputLength = 4800; // 100ms at 48kHz
     const input = new Float32Array(inputLength);
@@ -375,6 +419,18 @@ describe("AudioCapture", () => {
 
     const output = AudioCapture.resampleTo16k(input, 48000);
     expect(output.length).toBe(1600); // 100ms at 16kHz
+  });
+
+  it("16kHz変換で高周波成分が音声帯域に混入しない", () => {
+    const input = Float32Array.from(
+      { length: 4800 },
+      (_, i) => 0.1 * Math.sin((2 * Math.PI * 12000 * i) / 48000),
+    );
+
+    const output = AudioCapture.resampleTo16k(input, 48000).subarray(160);
+    const rms = Math.sqrt(output.reduce((sum, sample) => sum + sample * sample, 0) / output.length);
+
+    expect(rms).toBeLessThan(0.001);
   });
 
   it("onPcmData コールバックが登録できる", () => {
