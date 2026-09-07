@@ -1,6 +1,6 @@
 {
   "name": "voice-live-comment",
-  "version": "1.5.9",
+  "version": "1.5.10",
   "description": "音声認識でYouTube Liveにコメント投稿",
   "private": true,
   "author": "みず",
@@ -21,18 +21,18 @@
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-node-resolve": "^16.0.3",
-    "@types/chrome": "^0.2.5",
+    "@types/chrome": "^0.2.8",
     "@types/node": "^26.4.1",
     "@vitest/coverage-v8": "^4.1.10",
     "jsdom": "^30.0.1",
     "oxlint": "^1.78.0",
     "oxlint-tsgolint": "^7.0.2001",
     "prettier": "^3.9.6",
-    "rollup": "^4.62.4",
+    "rollup": "^4.63.1",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "onnxruntime-web": "^1.27.0"
+    "onnxruntime-web": "^1.29.0"
   }
 }
