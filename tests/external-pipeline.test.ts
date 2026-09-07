@@ -8,6 +8,7 @@ import {
 } from "../src/external-pipeline.js";
 import { type RecordingFormat } from "../src/audio-capture.js";
 import { SttProvider } from "../src/stt/stt-provider.js";
+import { MockAudioContext } from "./setup.js";
 
 function createDeferred(): { promise: Promise<void>; resolve: () => void } {
   let resolve: () => void = () => undefined;
@@ -30,6 +31,44 @@ class FakeProvider extends SttProvider {
 }
 
 describe("createExternalPipeline", () => {
+  it.each([
+    { frequency: 1000, sendsAudio: true },
+    { frequency: 12000, sendsAudio: false },
+  ])(
+    "$frequency Hzの入力を変換したPCMで認識音量ゲートを判定する",
+    async ({ frequency, sendsAudio }) => {
+      vi.useFakeTimers();
+      const createProcessor = vi.spyOn(MockAudioContext.prototype, "createScriptProcessor");
+      const provider = new FakeProvider("pcm16");
+      const pipeline = await createExternalPipeline(provider);
+
+      try {
+        const created = createProcessor.mock.results[0];
+        if (created?.type !== "return") throw new Error("音声入力が初期化されていません");
+        const processor = created.value;
+        const input = Float32Array.from(
+          { length: 48000 },
+          (_, i) => 0.1 * Math.sin((2 * Math.PI * frequency * i) / 48000),
+        );
+        for (let offset = 0; offset < input.length; offset += 4096) {
+          const frame = input.subarray(offset, offset + 4096);
+          processor.onaudioprocess?.({ inputBuffer: { getChannelData: () => frame } });
+          vi.advanceTimersByTime((frame.length / 48000) * 1000);
+        }
+        processor.onaudioprocess?.({
+          inputBuffer: { getChannelData: () => new Float32Array(4096) },
+        });
+        vi.advanceTimersByTime(3000);
+
+        expect(provider.sendAudio).toHaveBeenCalledTimes(sendsAudio ? 1 : 0);
+      } finally {
+        await pipeline.stop();
+        createProcessor.mockRestore();
+        vi.useRealTimers();
+      }
+    },
+  );
+
   it("providerの録音形式をAudioCaptureに渡す", async () => {
     const provider = new FakeProvider("pcm16");
     let audioCaptureOptions: { recordingFormat: RecordingFormat } | undefined;

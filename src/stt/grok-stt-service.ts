@@ -68,6 +68,9 @@ const EMPTY_LANGUAGE_FOREIGN_TRANSCRIPT_PATTERNS = new Map<string, RegExp[]>([
   ],
   ["zh", [/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u]],
 ]);
+const JAPANESE_CHARACTERS = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
+const JAPANESE_OR_LATIN_LETTER =
+  /[\p{Script_Extensions=Han}\p{Script_Extensions=Hiragana}\p{Script_Extensions=Katakana}\p{Script_Extensions=Latin}]/u;
 
 type GrokWord = Record<string, unknown>;
 
@@ -97,6 +100,7 @@ function normalizeDetectedLanguage(language: unknown): string {
   const normalized = (typeof language === "string" ? language : "").trim().toLowerCase();
   if (!normalized) return "";
   const code = normalized.split("-")[0] ?? "";
+  if (code === "und") return "";
   if (/^[a-z]{2,3}$/.test(code)) return code;
   return DETECTED_LANGUAGE_CODES.get(normalized) ?? "";
 }
@@ -111,7 +115,7 @@ function isShortTranscript(text: unknown, words: GrokWord[] = []): boolean {
   return Array.isArray(words) && words.length > 0 && words.length <= 1 && lexicalLength <= 12;
 }
 
-function shouldSuppressShortForeignTranscript({
+function shouldSuppressForeignTranscript({
   text,
   requestedLanguage,
   detectedLanguage,
@@ -125,14 +129,21 @@ function shouldSuppressShortForeignTranscript({
   const requested = normalizeLanguageCode(requestedLanguage);
   const detected = normalizeDetectedLanguage(detectedLanguage);
   if (!text || !requested) return false;
-  if (!isShortTranscript(text, words)) return false;
-
   if (detected) {
     return requested !== detected;
   }
 
-  const patterns = EMPTY_LANGUAGE_FOREIGN_TRANSCRIPT_PATTERNS.get(requested) ?? [];
   const normalizedText = typeof text === "string" ? text.normalize("NFKC") : "";
+  // 漢字だけの短文や英字の固有名詞は言語を断定できないため保持する。
+  // 日本語を含む文章も、引用や製品名の文字だけで除外しない。
+  if (requested === "ja" && !JAPANESE_CHARACTERS.test(normalizedText)) {
+    const letters = normalizedText.match(/\p{Letter}/gu) ?? [];
+    if (letters.some((letter) => !JAPANESE_OR_LATIN_LETTER.test(letter))) return true;
+  }
+
+  if (!isShortTranscript(text, words)) return false;
+
+  const patterns = EMPTY_LANGUAGE_FOREIGN_TRANSCRIPT_PATTERNS.get(requested) ?? [];
   return patterns.some((pattern) => pattern.test(normalizedText));
 }
 
@@ -202,7 +213,7 @@ export async function recognizeGrokSpeech(message: GrokSttMessage): Promise<stri
       const data = (await response.json()) as GrokSttApiResponse;
       const text = data.text ?? "";
       if (
-        shouldSuppressShortForeignTranscript({
+        shouldSuppressForeignTranscript({
           text,
           requestedLanguage: message.language,
           detectedLanguage: data.language,

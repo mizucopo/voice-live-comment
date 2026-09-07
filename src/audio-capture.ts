@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-deprecated -- Chrome向け既存録音処理はScriptProcessorNodeを使用する。 */
 
+import { AudioResampler } from "./audio-resampler.js";
+
 const MEDIA_RECORDER_TIMESLICE_MS = 250;
 const PRE_ROLL_MS = 3000;
 const MAX_PRE_ROLL_CHUNKS = Math.ceil(PRE_ROLL_MS / MEDIA_RECORDER_TIMESLICE_MS);
@@ -70,10 +72,14 @@ export class AudioCapture {
       const source = audioContext.createMediaStreamSource(stream);
       const scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
       this.scriptProcessor = scriptProcessor;
+      let resampler: AudioResampler | null = null;
 
       scriptProcessor.onaudioprocess = (e: AudioProcessingEvent) => {
         const pcmData = e.inputBuffer.getChannelData(0);
-        const resampled = AudioCapture.resampleTo16k(pcmData, audioContext.sampleRate);
+        if (resampler?.inputRate !== audioContext.sampleRate) {
+          resampler = new AudioResampler(audioContext.sampleRate);
+        }
+        const resampled = resampler.process(pcmData);
         if (this.recordingFormat === "pcm16") {
           this.handlePcmData(resampled);
         }
@@ -350,20 +356,7 @@ export class AudioCapture {
   }
 
   static resampleTo16k(data: Float32Array, inputRate: number): Float32Array<ArrayBuffer> {
-    if (inputRate === 16000) return new Float32Array(data);
-    const ratio = inputRate / 16000;
-    const newLength = Math.round(data.length / ratio);
-    const result = new Float32Array(newLength);
-    for (let i = 0; i < newLength; i++) {
-      const srcIndex = i * ratio;
-      const srcIndexFloor = Math.floor(srcIndex);
-      const srcIndexCeil = Math.min(srcIndexFloor + 1, data.length - 1);
-      const fraction = srcIndex - srcIndexFloor;
-      const floorSample = data[srcIndexFloor] ?? 0;
-      const ceilSample = data[srcIndexCeil] ?? 0;
-      result[i] = floorSample * (1 - fraction) + ceilSample * fraction;
-    }
-    return result;
+    return new AudioResampler(inputRate).process(data);
   }
 
   static float32FramesToPcm16Blob(frames: readonly Float32Array[]): Blob {
