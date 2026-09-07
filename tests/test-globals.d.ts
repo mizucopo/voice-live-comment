@@ -7,8 +7,8 @@ import type {
 } from "./setup.js";
 
 type MockSpeechRecognitionInstance = InstanceType<typeof MockSpeechRecognitionClass>;
-type MockSpeechRecognitionStatic = Omit<typeof MockSpeechRecognitionClass, "_instances"> & {
-  _instances: IndexableArray<MockSpeechRecognitionInstance>;
+type MockSpeechRecognitionStatic = Omit<typeof MockSpeechRecognitionClass, "instances"> & {
+  instances: IndexableArray<MockSpeechRecognitionInstance>;
 };
 
 declare global {

@@ -70,9 +70,9 @@ export class RecognitionVolumeGate {
   readonly threshold: number;
   readonly isDisabled: boolean;
   readonly targetDurationMs: number;
-  private readonly _now: () => number;
-  private _aboveThresholdMs: number;
-  private _lastTargetSpeechAtMs: number | null;
+  private readonly now: () => number;
+  private aboveThresholdMs: number;
+  private lastTargetSpeechAtMs: number | null;
 
   constructor({
     recognitionVolumeThreshold = DEFAULT_RECOGNITION_VOLUME_THRESHOLD,
@@ -82,14 +82,14 @@ export class RecognitionVolumeGate {
     this.threshold = normalizeRecognitionVolumeThreshold(recognitionVolumeThreshold);
     this.isDisabled = this.threshold === DISABLED_RECOGNITION_VOLUME_THRESHOLD;
     this.targetDurationMs = recognitionTargetDurationMs;
-    this._now = now;
-    this._aboveThresholdMs = 0;
-    this._lastTargetSpeechAtMs = null;
+    this.now = now;
+    this.aboveThresholdMs = 0;
+    this.lastTargetSpeechAtMs = null;
   }
 
   processFrame(
     pcmData: ArrayLike<number>,
-    { sampleRate = DEFAULT_PCM_SAMPLE_RATE, now = this._now() }: ProcessFrameOptions = {},
+    { sampleRate = DEFAULT_PCM_SAMPLE_RATE, now = this.now() }: ProcessFrameOptions = {},
   ): boolean {
     return this.processRms(
       calculateRms(pcmData),
@@ -98,39 +98,39 @@ export class RecognitionVolumeGate {
     );
   }
 
-  processRms(rms: number, durationMs: number, now = this._now()): boolean {
+  processRms(rms: number, durationMs: number, now = this.now()): boolean {
     if (this.isDisabled) {
-      this._lastTargetSpeechAtMs = now;
+      this.lastTargetSpeechAtMs = now;
       return true;
     }
 
     if (rms >= this.threshold) {
-      this._aboveThresholdMs += Math.max(0, durationMs);
-      if (this._aboveThresholdMs >= this.targetDurationMs) {
-        this._lastTargetSpeechAtMs = now;
+      this.aboveThresholdMs += Math.max(0, durationMs);
+      if (this.aboveThresholdMs >= this.targetDurationMs) {
+        this.lastTargetSpeechAtMs = now;
         return true;
       }
       return false;
     }
 
-    this._aboveThresholdMs = 0;
+    this.aboveThresholdMs = 0;
     return false;
   }
 
   hasRecentTargetSpeech(
     windowMs = DEFAULT_RECOGNITION_RESULT_WINDOW_MS,
-    now = this._now(),
+    now = this.now(),
   ): boolean {
     if (this.isDisabled) {
       return true;
     }
 
-    return this._lastTargetSpeechAtMs !== null && now - this._lastTargetSpeechAtMs <= windowMs;
+    return this.lastTargetSpeechAtMs !== null && now - this.lastTargetSpeechAtMs <= windowMs;
   }
 
   consumeRecentTargetSpeech(
     windowMs = DEFAULT_RECOGNITION_RESULT_WINDOW_MS,
-    now = this._now(),
+    now = this.now(),
   ): boolean {
     if (this.isDisabled) {
       return true;
@@ -142,7 +142,7 @@ export class RecognitionVolumeGate {
   }
 
   reset(): void {
-    this._aboveThresholdMs = 0;
-    this._lastTargetSpeechAtMs = null;
+    this.aboveThresholdMs = 0;
+    this.lastTargetSpeechAtMs = null;
   }
 }

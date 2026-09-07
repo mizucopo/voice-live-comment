@@ -14,15 +14,15 @@ type VadOptions = {
 };
 
 export class Vad {
-  private _isSpeech: boolean;
-  private _silenceTimer: ReturnType<typeof setTimeout> | null;
-  private _speechStartCallbacks: (() => void)[];
-  private _speechEndCallbacks: (() => void)[];
+  private isSpeech: boolean;
+  private silenceTimer: ReturnType<typeof setTimeout> | null;
+  private speechStartCallbacks: (() => void)[];
+  private speechEndCallbacks: (() => void)[];
   readonly THRESHOLD: number;
-  private readonly _isRecognitionVolumeGateDisabled: boolean;
+  private readonly isRecognitionVolumeGateDisabled: boolean;
   readonly SPEECH_BOUNDARY_THRESHOLD: number;
   readonly RECOGNITION_TARGET_DURATION_MS: number;
-  private readonly _recognitionVolumeGate: RecognitionVolumeGate;
+  private readonly recognitionVolumeGate: RecognitionVolumeGate;
   readonly SPEECH_END_GRACE_MS: number;
   readonly FRAME_SIZE: number;
 
@@ -30,17 +30,17 @@ export class Vad {
     recognitionVolumeThreshold = DEFAULT_RECOGNITION_VOLUME_THRESHOLD,
     recognitionTargetDurationMs = DEFAULT_RECOGNITION_TARGET_DURATION_MS,
   }: VadOptions = {}) {
-    this._isSpeech = false;
-    this._silenceTimer = null;
-    this._speechStartCallbacks = [];
-    this._speechEndCallbacks = [];
+    this.isSpeech = false;
+    this.silenceTimer = null;
+    this.speechStartCallbacks = [];
+    this.speechEndCallbacks = [];
     this.THRESHOLD = normalizeRecognitionVolumeThreshold(recognitionVolumeThreshold);
-    this._isRecognitionVolumeGateDisabled = isRecognitionVolumeGateDisabled(this.THRESHOLD);
-    this.SPEECH_BOUNDARY_THRESHOLD = this._isRecognitionVolumeGateDisabled
+    this.isRecognitionVolumeGateDisabled = isRecognitionVolumeGateDisabled(this.THRESHOLD);
+    this.SPEECH_BOUNDARY_THRESHOLD = this.isRecognitionVolumeGateDisabled
       ? MIN_ACTIVE_RECOGNITION_VOLUME_THRESHOLD
       : this.THRESHOLD;
     this.RECOGNITION_TARGET_DURATION_MS = recognitionTargetDurationMs;
-    this._recognitionVolumeGate = new RecognitionVolumeGate({
+    this.recognitionVolumeGate = new RecognitionVolumeGate({
       recognitionVolumeThreshold: this.THRESHOLD,
       recognitionTargetDurationMs,
     });
@@ -53,44 +53,44 @@ export class Vad {
   }
 
   onSpeechStart(callback: () => void): void {
-    this._speechStartCallbacks.push(callback);
+    this.speechStartCallbacks.push(callback);
   }
 
   onSpeechEnd(callback: () => void): void {
-    this._speechEndCallbacks.push(callback);
+    this.speechEndCallbacks.push(callback);
   }
 
   processFrame(pcmData: ArrayLike<number>): void {
     const rms = calculateRms(pcmData);
-    const isRecognitionTarget = this._isRecognitionVolumeGateDisabled
+    const isRecognitionTarget = this.isRecognitionVolumeGateDisabled
       ? rms >= this.SPEECH_BOUNDARY_THRESHOLD
-      : this._recognitionVolumeGate.processFrame(pcmData);
-    this._updateState(rms, isRecognitionTarget);
+      : this.recognitionVolumeGate.processFrame(pcmData);
+    this.updateState(rms, isRecognitionTarget);
   }
 
-  private _updateState(energy: number, isRecognitionTarget: boolean): void {
-    if (isRecognitionTarget && !this._isSpeech) {
-      this._isSpeech = true;
-      if (this._silenceTimer !== null) clearTimeout(this._silenceTimer);
-      this._silenceTimer = null;
-      for (const cb of this._speechStartCallbacks) cb();
-    } else if (energy >= this.SPEECH_BOUNDARY_THRESHOLD && this._isSpeech) {
-      if (this._silenceTimer !== null) clearTimeout(this._silenceTimer);
-      this._silenceTimer = null;
-    } else if (energy < this.SPEECH_BOUNDARY_THRESHOLD && this._isSpeech) {
-      this._silenceTimer ??= setTimeout(() => {
-        this._isSpeech = false;
-        this._silenceTimer = null;
-        for (const cb of this._speechEndCallbacks) cb();
+  private updateState(energy: number, isRecognitionTarget: boolean): void {
+    if (isRecognitionTarget && !this.isSpeech) {
+      this.isSpeech = true;
+      if (this.silenceTimer !== null) clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+      for (const cb of this.speechStartCallbacks) cb();
+    } else if (energy >= this.SPEECH_BOUNDARY_THRESHOLD && this.isSpeech) {
+      if (this.silenceTimer !== null) clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    } else if (energy < this.SPEECH_BOUNDARY_THRESHOLD && this.isSpeech) {
+      this.silenceTimer ??= setTimeout(() => {
+        this.isSpeech = false;
+        this.silenceTimer = null;
+        for (const cb of this.speechEndCallbacks) cb();
       }, this.SPEECH_END_GRACE_MS);
     }
   }
 
   destroy(): void {
-    if (this._silenceTimer !== null) clearTimeout(this._silenceTimer);
-    this._isSpeech = false;
-    this._recognitionVolumeGate.reset();
-    this._speechStartCallbacks = [];
-    this._speechEndCallbacks = [];
+    if (this.silenceTimer !== null) clearTimeout(this.silenceTimer);
+    this.isSpeech = false;
+    this.recognitionVolumeGate.reset();
+    this.speechStartCallbacks = [];
+    this.speechEndCallbacks = [];
   }
 }

@@ -17,67 +17,67 @@ type TimedChunk<T> = {
 };
 
 export class AudioCapture {
-  private readonly _recordingFormat: RecordingFormat;
-  private _stream: MediaStream | null;
-  private _audioContext: AudioContext | null;
-  private _mediaRecorder: MediaRecorder | null;
-  private _scriptProcessor: ScriptProcessorNode | null;
-  private readonly _pcmCallbacks: ((frame: Float32Array<ArrayBuffer>) => void)[];
-  private _isRecording = false;
-  private _recordingChunks: Blob[] = [];
-  private _recordingPcmChunks: Float32Array<ArrayBuffer>[] = [];
-  private _allChunks: TimedChunk<Blob>[] = [];
-  private _allPcmChunks: TimedChunk<Float32Array<ArrayBuffer>>[] = [];
-  private _headerChunk: Blob | null = null;
-  private _preRollBoundaryMs = 0;
-  private _mediaRecorderStartedAtMs = 0;
-  private _firstChunkTimecode: number | null = null;
-  private _lastChunkCapturedToMs = 0;
-  private _expectingHeaderChunk = false;
-  private _recordingPreRollStartMs = 0;
-  private _segmentId = 0;
-  private _lastPcmCapturedToMs = 0;
+  private readonly recordingFormat: RecordingFormat;
+  private stream: MediaStream | null;
+  private currentAudioContext: AudioContext | null;
+  private currentMediaRecorder: MediaRecorder | null;
+  private scriptProcessor: ScriptProcessorNode | null;
+  private readonly pcmCallbacks: ((frame: Float32Array<ArrayBuffer>) => void)[];
+  private isRecording = false;
+  private recordingChunks: Blob[] = [];
+  private recordingPcmChunks: Float32Array<ArrayBuffer>[] = [];
+  private allChunks: TimedChunk<Blob>[] = [];
+  private allPcmChunks: TimedChunk<Float32Array<ArrayBuffer>>[] = [];
+  private headerChunk: Blob | null = null;
+  private preRollBoundaryMs = 0;
+  private mediaRecorderStartedAtMs = 0;
+  private firstChunkTimecode: number | null = null;
+  private lastChunkCapturedToMs = 0;
+  private expectingHeaderChunk = false;
+  private recordingPreRollStartMs = 0;
+  private segmentId = 0;
+  private lastPcmCapturedToMs = 0;
 
   constructor({ recordingFormat = "webm" }: { recordingFormat?: RecordingFormat } = {}) {
-    this._recordingFormat = recordingFormat;
-    this._stream = null;
-    this._audioContext = null;
-    this._mediaRecorder = null;
-    this._scriptProcessor = null;
-    this._pcmCallbacks = [];
-    this._resetChunkState();
+    this.recordingFormat = recordingFormat;
+    this.stream = null;
+    this.currentAudioContext = null;
+    this.currentMediaRecorder = null;
+    this.scriptProcessor = null;
+    this.pcmCallbacks = [];
+    this.resetChunkState();
   }
 
   onPcmData(callback: (frame: Float32Array<ArrayBuffer>) => void): void {
-    this._pcmCallbacks.push(callback);
+    this.pcmCallbacks.push(callback);
   }
 
   get mediaRecorder(): MediaRecorder | null {
-    return this._mediaRecorder;
+    return this.currentMediaRecorder;
   }
 
   get audioContext(): AudioContext | null {
-    return this._audioContext;
+    return this.currentAudioContext;
   }
 
   async start(): Promise<void> {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    this._stream = stream;
+    this.stream = stream;
 
     try {
       const audioContext = new AudioContext();
-      this._audioContext = audioContext;
+      this.currentAudioContext = audioContext;
       const source = audioContext.createMediaStreamSource(stream);
       const scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
-      this._scriptProcessor = scriptProcessor;
+      this.scriptProcessor = scriptProcessor;
 
       scriptProcessor.onaudioprocess = (e: AudioProcessingEvent) => {
         const pcmData = e.inputBuffer.getChannelData(0);
         const resampled = AudioCapture.resampleTo16k(pcmData, audioContext.sampleRate);
-        if (this._recordingFormat === "pcm16") {
-          this._handlePcmData(resampled);
+        if (this.recordingFormat === "pcm16") {
+          this.handlePcmData(resampled);
         }
-        for (const cb of this._pcmCallbacks) {
+        for (const cb of this.pcmCallbacks) {
           cb(resampled);
         }
       };
@@ -91,23 +91,23 @@ export class AudioCapture {
       silentGain.connect(audioContext.destination);
 
       const startedAtMs = Date.now();
-      this._resetChunkState(startedAtMs);
-      if (this._recordingFormat === "webm") {
-        this._startMediaRecorderSegment(startedAtMs);
+      this.resetChunkState(startedAtMs);
+      if (this.recordingFormat === "webm") {
+        this.startMediaRecorderSegment(startedAtMs);
       }
     } catch (e) {
       // 部分初期化済みリソースの解放
       try {
-        if (this._scriptProcessor) {
+        if (this.scriptProcessor) {
           try {
-            this._scriptProcessor.disconnect();
+            this.scriptProcessor.disconnect();
           } catch {
             // Cleanup remains best-effort.
           }
         }
-        if (this._audioContext && this._audioContext.state !== "closed") {
+        if (this.currentAudioContext && this.currentAudioContext.state !== "closed") {
           try {
-            await this._audioContext.close();
+            await this.currentAudioContext.close();
           } catch {
             // Cleanup remains best-effort.
           }
@@ -118,22 +118,22 @@ export class AudioCapture {
       } catch {
         // Cleanup remains best-effort.
       }
-      this._stream = null;
+      this.stream = null;
       throw e;
     }
   }
 
   startRecording({ preRollMs = PRE_ROLL_MS }: { preRollMs?: number } = {}): void {
     const chunks: Blob[] = [];
-    if (this._headerChunk) {
-      chunks.push(this._headerChunk);
+    if (this.headerChunk) {
+      chunks.push(this.headerChunk);
     }
     const startedAtMs = Date.now();
     const boundedPreRollMs = Math.max(0, Math.min(PRE_ROLL_MS, preRollMs));
-    const preRollStartMs = Math.max(startedAtMs - boundedPreRollMs, this._preRollBoundaryMs);
-    this._recordingPreRollStartMs = preRollStartMs;
-    const preChunks = this._allChunks.filter(
-      (chunk) => this._chunkOverlapsRecordingStart(chunk) && chunk.capturedFromMs <= startedAtMs,
+    const preRollStartMs = Math.max(startedAtMs - boundedPreRollMs, this.preRollBoundaryMs);
+    this.recordingPreRollStartMs = preRollStartMs;
+    const preChunks = this.allChunks.filter(
+      (chunk) => this.chunkOverlapsRecordingStart(chunk) && chunk.capturedFromMs <= startedAtMs,
     );
     for (const { data } of preChunks) {
       if (!chunks.includes(data)) {
@@ -141,82 +141,82 @@ export class AudioCapture {
       }
     }
     const prePcmChunks =
-      this._recordingFormat === "pcm16"
-        ? this._allPcmChunks
+      this.recordingFormat === "pcm16"
+        ? this.allPcmChunks
             .filter(
               (chunk) =>
-                this._chunkOverlapsRecordingStart(chunk) && chunk.capturedFromMs <= startedAtMs,
+                this.chunkOverlapsRecordingStart(chunk) && chunk.capturedFromMs <= startedAtMs,
             )
             .map(({ data }) => data)
         : [];
-    this._recordingChunks = chunks;
-    this._recordingPcmChunks =
-      this._recordingFormat === "pcm16"
+    this.recordingChunks = chunks;
+    this.recordingPcmChunks =
+      this.recordingFormat === "pcm16"
         ? [new Float32Array(PCM_LEADING_SILENCE_SAMPLES), ...prePcmChunks]
         : [];
-    this._isRecording = true;
+    this.isRecording = true;
   }
 
   markPreRollBoundary(): void {
     const boundaryMs = Date.now();
-    this._preRollBoundaryMs = boundaryMs;
-    this._allChunks = this._allChunks.filter(({ capturedToMs }) => capturedToMs > boundaryMs);
-    this._allPcmChunks = this._allPcmChunks.filter(({ capturedToMs }) => capturedToMs > boundaryMs);
-    if (this._mediaRecorder && this._mediaRecorder.state !== "inactive") {
-      this._startMediaRecorderSegment(boundaryMs);
+    this.preRollBoundaryMs = boundaryMs;
+    this.allChunks = this.allChunks.filter(({ capturedToMs }) => capturedToMs > boundaryMs);
+    this.allPcmChunks = this.allPcmChunks.filter(({ capturedToMs }) => capturedToMs > boundaryMs);
+    if (this.currentMediaRecorder && this.currentMediaRecorder.state !== "inactive") {
+      this.startMediaRecorderSegment(boundaryMs);
     }
   }
 
   stopRecording(): Blob {
-    this._isRecording = false;
-    if (this._recordingFormat === "pcm16") {
-      const blob = AudioCapture.float32FramesToPcm16Blob(this._recordingPcmChunks);
-      this._recordingPcmChunks = [];
-      this._recordingChunks = [];
+    this.isRecording = false;
+    if (this.recordingFormat === "pcm16") {
+      const blob = AudioCapture.float32FramesToPcm16Blob(this.recordingPcmChunks);
+      this.recordingPcmChunks = [];
+      this.recordingChunks = [];
       return blob;
     }
 
-    const blob = new Blob(this._recordingChunks, { type: "audio/webm;codecs=opus" });
-    this._recordingChunks = [];
-    this._recordingPcmChunks = [];
+    const blob = new Blob(this.recordingChunks, { type: "audio/webm;codecs=opus" });
+    this.recordingChunks = [];
+    this.recordingPcmChunks = [];
     return blob;
   }
 
-  private _resetChunkState(startedAtMs = 0): void {
-    this._isRecording = false;
-    this._recordingChunks = [];
-    this._recordingPcmChunks = [];
-    this._allChunks = [];
-    this._allPcmChunks = [];
-    this._headerChunk = null;
-    this._preRollBoundaryMs = 0;
-    this._mediaRecorderStartedAtMs = startedAtMs;
-    this._firstChunkTimecode = null;
-    this._lastChunkCapturedToMs = startedAtMs;
-    this._expectingHeaderChunk = false;
-    this._recordingPreRollStartMs = 0;
-    this._segmentId = 0;
-    this._lastPcmCapturedToMs = startedAtMs;
+  private resetChunkState(startedAtMs = 0): void {
+    this.isRecording = false;
+    this.recordingChunks = [];
+    this.recordingPcmChunks = [];
+    this.allChunks = [];
+    this.allPcmChunks = [];
+    this.headerChunk = null;
+    this.preRollBoundaryMs = 0;
+    this.mediaRecorderStartedAtMs = startedAtMs;
+    this.firstChunkTimecode = null;
+    this.lastChunkCapturedToMs = startedAtMs;
+    this.expectingHeaderChunk = false;
+    this.recordingPreRollStartMs = 0;
+    this.segmentId = 0;
+    this.lastPcmCapturedToMs = startedAtMs;
   }
 
-  private _handlePcmData(frame: Float32Array): void {
+  private handlePcmData(frame: Float32Array): void {
     const data = new Float32Array(frame);
     const durationMs = (data.length / PCM_SAMPLE_RATE) * 1000;
-    const capturedToMs = Math.max(this._lastPcmCapturedToMs + durationMs, Date.now());
+    const capturedToMs = Math.max(this.lastPcmCapturedToMs + durationMs, Date.now());
     const capturedFromMs = capturedToMs - durationMs;
     const chunk = { data, capturedFromMs, capturedToMs };
 
-    this._lastPcmCapturedToMs = capturedToMs;
-    this._allPcmChunks.push(chunk);
-    this._trimBufferedPcmChunks();
+    this.lastPcmCapturedToMs = capturedToMs;
+    this.allPcmChunks.push(chunk);
+    this.trimBufferedPcmChunks();
 
-    if (this._isRecording && this._chunkOverlapsRecordingStart(chunk)) {
-      this._recordingPcmChunks.push(data);
+    if (this.isRecording && this.chunkOverlapsRecordingStart(chunk)) {
+      this.recordingPcmChunks.push(data);
     }
   }
 
-  private _handleDataAvailable(e: BlobEvent, segmentId = this._segmentId): void {
-    if (segmentId !== this._segmentId) {
+  private handleDataAvailable(e: BlobEvent, segmentId = this.segmentId): void {
+    if (segmentId !== this.segmentId) {
       return;
     }
 
@@ -226,128 +226,126 @@ export class AudioCapture {
     }
 
     const deliveredAtMs = Date.now();
-    const capturedFromMs = this._resolveChunkStartMs(e, deliveredAtMs);
-    const capturedToMs = this._resolveChunkEndMs(capturedFromMs);
+    const capturedFromMs = this.resolveChunkStartMs(e, deliveredAtMs);
+    const capturedToMs = this.resolveChunkEndMs(capturedFromMs);
     const chunk = {
       data,
       capturedFromMs,
       capturedToMs,
     };
 
-    this._lastChunkCapturedToMs = capturedToMs;
+    this.lastChunkCapturedToMs = capturedToMs;
 
-    if (this._expectingHeaderChunk) {
-      this._expectingHeaderChunk = false;
-      if (this._isRecording) {
-        this._appendRecordingChunk(chunk);
+    if (this.expectingHeaderChunk) {
+      this.expectingHeaderChunk = false;
+      if (this.isRecording) {
+        this.appendRecordingChunk(chunk);
       } else {
-        this._headerChunk = data;
+        this.headerChunk = data;
       }
       return;
     }
 
-    this._allChunks.push(chunk);
-    this._trimBufferedChunks();
-    this._appendRecordingChunk(chunk);
+    this.allChunks.push(chunk);
+    this.trimBufferedChunks();
+    this.appendRecordingChunk(chunk);
   }
 
-  private _appendRecordingChunk(chunk: TimedChunk<Blob>): void {
-    if (!this._isRecording) {
+  private appendRecordingChunk(chunk: TimedChunk<Blob>): void {
+    if (!this.isRecording) {
       return;
     }
-    if (!this._chunkOverlapsRecordingStart(chunk)) {
+    if (!this.chunkOverlapsRecordingStart(chunk)) {
       return;
     }
-    this._recordingChunks.push(chunk.data);
+    this.recordingChunks.push(chunk.data);
   }
 
-  private _chunkOverlapsRecordingStart(chunk: TimedChunk<unknown>): boolean {
-    return chunk.capturedToMs > this._recordingPreRollStartMs;
+  private chunkOverlapsRecordingStart(chunk: TimedChunk<unknown>): boolean {
+    return chunk.capturedToMs > this.recordingPreRollStartMs;
   }
 
-  private _startMediaRecorderSegment(startedAtMs: number): void {
-    const previousRecorder = this._mediaRecorder;
-    this._segmentId += 1;
+  private startMediaRecorderSegment(startedAtMs: number): void {
+    const previousRecorder = this.currentMediaRecorder;
+    this.segmentId += 1;
 
-    this._headerChunk = null;
-    this._expectingHeaderChunk = false;
-    this._mediaRecorderStartedAtMs = startedAtMs;
-    this._firstChunkTimecode = null;
-    this._lastChunkCapturedToMs = startedAtMs;
+    this.headerChunk = null;
+    this.expectingHeaderChunk = false;
+    this.mediaRecorderStartedAtMs = startedAtMs;
+    this.firstChunkTimecode = null;
+    this.lastChunkCapturedToMs = startedAtMs;
 
     if (previousRecorder && previousRecorder.state !== "inactive") {
       previousRecorder.stop();
     }
 
-    if (!this._stream) throw new Error("Audio stream is not initialized");
-    const mediaRecorder = new MediaRecorder(this._stream, {
+    if (!this.stream) throw new Error("Audio stream is not initialized");
+    const mediaRecorder = new MediaRecorder(this.stream, {
       mimeType: "audio/webm;codecs=opus",
     });
-    this._mediaRecorder = mediaRecorder;
-    const segmentId = this._segmentId;
+    this.currentMediaRecorder = mediaRecorder;
+    const segmentId = this.segmentId;
     mediaRecorder.ondataavailable = (e: BlobEvent) => {
-      this._handleDataAvailable(e, segmentId);
+      this.handleDataAvailable(e, segmentId);
     };
     mediaRecorder.start(MEDIA_RECORDER_TIMESLICE_MS);
-    this._requestHeaderChunk();
+    this.requestHeaderChunk();
   }
 
-  private _requestHeaderChunk(): void {
-    const mediaRecorder = this._mediaRecorder;
+  private requestHeaderChunk(): void {
+    const mediaRecorder = this.currentMediaRecorder;
     if (!mediaRecorder || typeof mediaRecorder.requestData !== "function") return;
 
     // 最初のBlobがヘッダーと音声を併せ持つ前に、再利用するヘッダーだけを分離する。
-    this._expectingHeaderChunk = true;
+    this.expectingHeaderChunk = true;
     try {
       mediaRecorder.requestData();
     } catch {
-      this._expectingHeaderChunk = false;
+      this.expectingHeaderChunk = false;
     }
   }
 
-  private _resolveChunkStartMs(e: BlobEvent, deliveredAtMs: number): number {
+  private resolveChunkStartMs(e: BlobEvent, deliveredAtMs: number): number {
     if (Number.isFinite(e.timecode)) {
-      this._firstChunkTimecode ??= e.timecode;
-      return this._mediaRecorderStartedAtMs + Math.max(0, e.timecode - this._firstChunkTimecode);
+      this.firstChunkTimecode ??= e.timecode;
+      return this.mediaRecorderStartedAtMs + Math.max(0, e.timecode - this.firstChunkTimecode);
     }
 
-    return this._lastChunkCapturedToMs || deliveredAtMs;
+    return this.lastChunkCapturedToMs || deliveredAtMs;
   }
 
-  private _resolveChunkEndMs(capturedFromMs: number): number {
+  private resolveChunkEndMs(capturedFromMs: number): number {
     return capturedFromMs + MEDIA_RECORDER_TIMESLICE_MS;
   }
 
-  private _trimBufferedChunks(): void {
-    this._allChunks = this._allChunks.slice(-MAX_PRE_ROLL_CHUNKS);
+  private trimBufferedChunks(): void {
+    this.allChunks = this.allChunks.slice(-MAX_PRE_ROLL_CHUNKS);
   }
 
-  private _trimBufferedPcmChunks(): void {
-    const lowerBoundMs = Math.max(this._preRollBoundaryMs, this._lastPcmCapturedToMs - PRE_ROLL_MS);
-    this._allPcmChunks = this._allPcmChunks.filter(
-      ({ capturedToMs }) => capturedToMs > lowerBoundMs,
-    );
+  private trimBufferedPcmChunks(): void {
+    const lowerBoundMs = Math.max(this.preRollBoundaryMs, this.lastPcmCapturedToMs - PRE_ROLL_MS);
+    this.allPcmChunks = this.allPcmChunks.filter(({ capturedToMs }) => capturedToMs > lowerBoundMs);
   }
 
   async stop(): Promise<void> {
-    if (this._mediaRecorder && this._mediaRecorder.state !== "inactive") {
-      this._mediaRecorder.stop();
+    if (this.currentMediaRecorder && this.currentMediaRecorder.state !== "inactive") {
+      this.currentMediaRecorder.stop();
     }
-    if (this._scriptProcessor) {
-      this._scriptProcessor.disconnect();
+    if (this.scriptProcessor) {
+      this.scriptProcessor.disconnect();
     }
-    if (this._audioContext && this._audioContext.state !== "closed") {
+    if (this.currentAudioContext && this.currentAudioContext.state !== "closed") {
       try {
-        await this._audioContext.close();
+        await this.currentAudioContext.close();
       } catch {
         // close() が失敗してもストリーム解放は継続
       }
     }
-    if (this._stream) {
-      this._stream.getTracks().forEach((track) => {
+    if (this.stream) {
+      this.stream.getTracks().forEach((track) => {
         track.stop();
       });
-      this._stream = null;
+      this.stream = null;
     }
   }
 

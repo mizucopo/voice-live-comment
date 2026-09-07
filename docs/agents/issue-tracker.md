@@ -6,11 +6,16 @@ name in agent instructions.
 
 ## Conventions
 
-- Create implementation issues and review-follow-up issues as GitHub Issues.
+- Create review-follow-up Issues as GitHub Issues.
 - Read the full issue body, comments, and labels before acting on an issue.
-- Include enough context for an agent to act: source URL, affected files or
-  lines when available, problem statement, and expected resolution or open
-  question.
+- Keep issues concise and centered on the purpose, desired outcome, and problem
+  or open question. Add acceptance criteria only when they clarify what done
+  means.
+- Avoid prescribing implementation details unless they are requirements or
+  constraints. Decide the approach when implementation begins so it reflects
+  the current code, tools, and constraints.
+- Include source URLs or other evidence when needed to explain the purpose or
+  constraints.
 - Use GitHub's native issue dependencies for blocking relationships when they
   are available. Otherwise, record blockers in the issue body.
 - Treat pull requests as implementation and review surfaces, not as substitutes

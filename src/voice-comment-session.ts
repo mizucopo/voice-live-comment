@@ -26,19 +26,19 @@ function errorMessage(error: unknown): string {
 }
 
 export class VoiceCommentSession {
-  private readonly _loadSettings: VoiceCommentSessionDependencies["loadSettings"];
-  private readonly _createProvider: VoiceCommentSessionDependencies["createProvider"];
-  private readonly _createExternalPipeline: VoiceCommentSessionDependencies["createExternalPipeline"];
-  private readonly _postComment: VoiceCommentSessionDependencies["postComment"];
-  private readonly _notifyActive: VoiceCommentSessionDependencies["notifyActive"];
-  private readonly _notifyError: VoiceCommentSessionDependencies["notifyError"];
-  private readonly _startTimeoutMs: number;
-  private readonly _logger: Pick<Console, "error" | "log" | "warn">;
-  private _isActive: boolean;
-  private _isStarting: boolean;
-  private _currentProvider: SttProvider | null;
-  private _externalPipeline: ExternalPipeline | null;
-  private _startTimeoutId: ReturnType<typeof setTimeout> | null;
+  private readonly loadSettings: VoiceCommentSessionDependencies["loadSettings"];
+  private readonly createProvider: VoiceCommentSessionDependencies["createProvider"];
+  private readonly createExternalPipeline: VoiceCommentSessionDependencies["createExternalPipeline"];
+  private readonly postComment: VoiceCommentSessionDependencies["postComment"];
+  private readonly notifyActive: VoiceCommentSessionDependencies["notifyActive"];
+  private readonly notifyError: VoiceCommentSessionDependencies["notifyError"];
+  private readonly startTimeoutMs: number;
+  private readonly logger: Pick<Console, "error" | "log" | "warn">;
+  private isActive: boolean;
+  private isStarting: boolean;
+  private currentProvider: SttProvider | null;
+  private externalPipeline: ExternalPipeline | null;
+  private startTimeoutId: ReturnType<typeof setTimeout> | null;
 
   constructor({
     loadSettings,
@@ -50,94 +50,94 @@ export class VoiceCommentSession {
     startTimeoutMs = 10000,
     logger = console,
   }: VoiceCommentSessionDependencies) {
-    this._loadSettings = loadSettings;
-    this._createProvider = createProvider;
-    this._createExternalPipeline = createExternalPipeline;
-    this._postComment = postComment;
-    this._notifyActive = notifyActive;
-    this._notifyError = notifyError;
-    this._startTimeoutMs = startTimeoutMs;
-    this._logger = logger;
+    this.loadSettings = loadSettings;
+    this.createProvider = createProvider;
+    this.createExternalPipeline = createExternalPipeline;
+    this.postComment = postComment;
+    this.notifyActive = notifyActive;
+    this.notifyError = notifyError;
+    this.startTimeoutMs = startTimeoutMs;
+    this.logger = logger;
 
-    this._isActive = false;
-    this._isStarting = false;
-    this._currentProvider = null;
-    this._externalPipeline = null;
-    this._startTimeoutId = null;
+    this.isActive = false;
+    this.isStarting = false;
+    this.currentProvider = null;
+    this.externalPipeline = null;
+    this.startTimeoutId = null;
   }
 
   snapshot(): { isActive: boolean } {
-    return { isActive: this._isActive };
+    return { isActive: this.isActive };
   }
 
   toggle(): { isActive: boolean } {
-    if (this._isActive) {
+    if (this.isActive) {
       void this.stop();
       return this.snapshot();
     }
 
-    if (this._isStarting) {
+    if (this.isStarting) {
       return this.snapshot();
     }
 
-    this._isStarting = true;
-    this._startTimeoutId = setTimeout(() => {
-      if (this._isStarting && !this._isActive) {
-        void this._handleStartTimeout();
+    this.isStarting = true;
+    this.startTimeoutId = setTimeout(() => {
+      if (this.isStarting && !this.isActive) {
+        void this.handleStartTimeout();
       }
-    }, this._startTimeoutMs);
+    }, this.startTimeoutMs);
 
-    void this._start().catch((error: unknown) => {
-      this._logger.error("[Voice Live Comment] startRecognition failed:", error);
-      this._notifyError("音声認識の開始に失敗しました: " + errorMessage(error));
-      this._finishStarting();
+    void this.start().catch((error: unknown) => {
+      this.logger.error("[Voice Live Comment] startRecognition failed:", error);
+      this.notifyError("音声認識の開始に失敗しました: " + errorMessage(error));
+      this.finishStarting();
     });
 
     return this.snapshot();
   }
 
   async restartWithLatestSettings(): Promise<void> {
-    if (!this._isActive) return;
+    if (!this.isActive) return;
 
     await this.stop();
     this.toggle();
   }
 
   async stop(): Promise<void> {
-    this._isActive = false;
-    this._finishStarting();
+    this.isActive = false;
+    this.finishStarting();
 
-    const { provider, pipeline } = this._takeCurrentResources();
+    const { provider, pipeline } = this.takeCurrentResources();
 
-    await this._stopExternalPipeline(pipeline);
-    await this._stopProvider(provider);
+    await this.stopExternalPipeline(pipeline);
+    await this.stopProvider(provider);
 
-    this._notifyActive(false);
-    this._logger.log("[Voice Live Comment] 音声認識を停止しました");
+    this.notifyActive(false);
+    this.logger.log("[Voice Live Comment] 音声認識を停止しました");
   }
 
-  private async _start(): Promise<void> {
-    const settings = await this._loadSettings();
+  private async start(): Promise<void> {
+    const settings = await this.loadSettings();
 
     let provider: SttProvider;
     try {
-      provider = this._createProvider(settings);
+      provider = this.createProvider(settings);
     } catch (error) {
-      this._notifyError(errorMessage(error));
-      this._finishStarting();
+      this.notifyError(errorMessage(error));
+      this.finishStarting();
       return;
     }
 
-    this._currentProvider = provider;
-    this._bindProvider(provider);
+    this.currentProvider = provider;
+    this.bindProvider(provider);
 
     if (settings.sttProvider === "google" || settings.sttProvider === "grok") {
       try {
-        this._externalPipeline = await this._createExternalPipeline(provider, settings);
+        this.externalPipeline = await this.createExternalPipeline(provider, settings);
       } catch (error) {
-        this._notifyError("VADの初期化に失敗しました: " + errorMessage(error));
-        this._currentProvider = null;
-        this._finishStarting();
+        this.notifyError("VADの初期化に失敗しました: " + errorMessage(error));
+        this.currentProvider = null;
+        this.finishStarting();
         return;
       }
     }
@@ -145,64 +145,64 @@ export class VoiceCommentSession {
     try {
       await provider.start();
     } catch (error) {
-      await this._cleanupFailedStart();
-      this._notifyError(errorMessage(error));
+      await this.cleanupFailedStart();
+      this.notifyError(errorMessage(error));
     }
   }
 
-  private _bindProvider(provider: SttProvider): void {
+  private bindProvider(provider: SttProvider): void {
     provider.onStart(() => {
-      this._isActive = true;
-      this._finishStarting();
-      this._notifyActive(true);
-      this._logger.log("[Voice Live Comment] 音声認識を開始しました");
+      this.isActive = true;
+      this.finishStarting();
+      this.notifyActive(true);
+      this.logger.log("[Voice Live Comment] 音声認識を開始しました");
     });
 
     provider.onResult((text) => {
-      this._postComment(text);
+      this.postComment(text);
     });
 
     provider.onError((error) => {
-      this._notifyError(error.message);
-      if (this._isStarting) {
-        this._finishStarting();
+      this.notifyError(error.message);
+      if (this.isStarting) {
+        this.finishStarting();
       }
     });
   }
 
-  private async _cleanupFailedStart(): Promise<void> {
-    const { provider, pipeline } = this._takeCurrentResources();
+  private async cleanupFailedStart(): Promise<void> {
+    const { provider, pipeline } = this.takeCurrentResources();
 
-    await this._stopExternalPipeline(pipeline);
-    await this._stopProvider(provider);
-    this._isActive = false;
-    this._finishStarting();
+    await this.stopExternalPipeline(pipeline);
+    await this.stopProvider(provider);
+    this.isActive = false;
+    this.finishStarting();
   }
 
-  private async _handleStartTimeout(): Promise<void> {
-    this._logger.warn("[Voice Live Comment] 音声認識の開始がタイムアウトしました");
+  private async handleStartTimeout(): Promise<void> {
+    this.logger.warn("[Voice Live Comment] 音声認識の開始がタイムアウトしました");
 
-    const { provider, pipeline } = this._takeCurrentResources();
+    const { provider, pipeline } = this.takeCurrentResources();
 
-    await this._stopExternalPipeline(pipeline);
-    await this._stopProvider(provider);
+    await this.stopExternalPipeline(pipeline);
+    await this.stopProvider(provider);
 
-    this._finishStarting();
-    this._notifyError("音声認識の開始がタイムアウトしました。再度お試しください。");
+    this.finishStarting();
+    this.notifyError("音声認識の開始がタイムアウトしました。再度お試しください。");
   }
 
-  private _takeCurrentResources(): {
+  private takeCurrentResources(): {
     provider: SttProvider | null;
     pipeline: ExternalPipeline | null;
   } {
-    const provider = this._currentProvider;
-    const pipeline = this._externalPipeline;
-    this._currentProvider = null;
-    this._externalPipeline = null;
+    const provider = this.currentProvider;
+    const pipeline = this.externalPipeline;
+    this.currentProvider = null;
+    this.externalPipeline = null;
     return { provider, pipeline };
   }
 
-  private async _stopProvider(providerToStop: SttProvider | null): Promise<void> {
+  private async stopProvider(providerToStop: SttProvider | null): Promise<void> {
     if (providerToStop) {
       try {
         await providerToStop.stop();
@@ -212,7 +212,7 @@ export class VoiceCommentSession {
     }
   }
 
-  private async _stopExternalPipeline(pipelineToStop: ExternalPipeline | null): Promise<void> {
+  private async stopExternalPipeline(pipelineToStop: ExternalPipeline | null): Promise<void> {
     if (pipelineToStop) {
       try {
         await pipelineToStop.stop();
@@ -222,15 +222,15 @@ export class VoiceCommentSession {
     }
   }
 
-  private _finishStarting(): void {
-    this._isStarting = false;
-    this._clearStartTimeout();
+  private finishStarting(): void {
+    this.isStarting = false;
+    this.clearStartTimeout();
   }
 
-  private _clearStartTimeout(): void {
-    if (this._startTimeoutId !== null) {
-      clearTimeout(this._startTimeoutId);
+  private clearStartTimeout(): void {
+    if (this.startTimeoutId !== null) {
+      clearTimeout(this.startTimeoutId);
     }
-    this._startTimeoutId = null;
+    this.startTimeoutId = null;
   }
 }

@@ -10,14 +10,6 @@ class FakeProvider extends SttProvider {
   override readonly start = vi.fn().mockResolvedValue(undefined);
   override readonly stop = vi.fn().mockResolvedValue(undefined);
   override readonly sendAudio = vi.fn().mockResolvedValue(undefined);
-
-  emitStart(): void {
-    this._emitStart();
-  }
-
-  emitResult(text: string): void {
-    this._emitResult(text);
-  }
 }
 
 async function flushAsyncWork(): Promise<void> {

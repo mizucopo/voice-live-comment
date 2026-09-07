@@ -1,67 +1,66 @@
-## Issue-First Branch Workflow
+# Repository guidance
 
-### WHAT
+## Work boundaries
 
-- Never make changes directly on `main`.
-- Before starting work, create a GitHub Issue that describes the work.
-- Perform the work on a non-`main` branch associated with that Issue.
+- Do not make implementation changes directly on `main`.
+- Create a GitHub Issue before starting implementation and use a non-`main` branch associated with that Issue.
+- Use `git mv` to move tracked files and `git rm` to delete them.
+- Do not weaken quality checks or test configuration to make a failing change pass.
 
-## Documentation
+## Execution
 
-### HOW
+- Infer the requested outcome and scope from the conversation, and carry authorized work through implementation and verification. Treat action requests as instructions to do the work.
+- Make reasonable assumptions for routine details. Ask focused questions when missing information could materially change the result or an action needs approval; continue independent authorized work meanwhile.
+- Honor explicit approval gates and prior authorization. Prepare a concrete, reviewable result within the authorized scope before requesting any further approval.
+- Incorporate corrections and answer side questions while retaining the overall task unless the user cancels or replaces it.
 
-- Update related documentation when code changes affect users
-- Document usage for new features in README
-- Update relevant docs when interfaces change
-- Split large docs into separate files in `docs/` folder
-- Add links to split docs in README
+## Instructions
 
-## File Operations
+- Follow the platform's instruction hierarchy and permissions. Within that hierarchy, explicit user instructions override lower-priority skill guidelines.
+- If a skill causes a pause, confirmation request, or unfinished work, explain how it applies and distinguish explicit requirements from your interpretation. Identify and quote the instruction only when its source may be shared with the user; link its `SKILL.md` when available, or cite its identifier or available source. Otherwise give only a permitted identifier and a brief explanation without disclosing confidential content.
 
-### HOW
+## Communication
+
+- Lead with the result and use concise, plain language. Use lists when they clarify parallel items or steps.
+- Give brief progress updates at meaningful milestones. Report what changed, the verification performed, and any unresolved blocker without claiming unverified success.
+
+## Delegation
+
+- When subagent tools are available, delegate independent, bounded tasks if parallel work can save time or improve quality. Give each task a clear scope and completion criterion, continue useful local work, and verify returned results before integrating them.
+
+## Verification
+
+- Run checks appropriate to the change and all required repository quality gates. Broaden or repeat passed checks only when new changes, failures, or unresolved concerns justify it.
+- Add tests that verify meaningful behavior or contracts; avoid tests that merely mirror the implementation for reversible, low-impact changes.
+
+## Project context
+
+- For issue creation and management, follow `docs/agents/issue-tracker.md`.
+- For issue triage, use the label mapping in `docs/agents/triage-labels.md`.
+- Before changing domain terminology or architecture, follow `docs/agents/domain.md` and its referenced context and ADRs.
+
+## Template updates
+
+- Generated configuration and source files remain Copier-managed.
+- Update from `repo-template/main` with `copier update --trust --defaults --vcs-ref HEAD` on a clean non-`main` branch.
+- Review the complete diff and resolve every Copier conflict before running the repository quality gate.
+- Do not use `copier recopy` for routine updates.
+
+## Chrome Extension
+
+- Target Manifest V3.
+- Import runtime TypeScript modules with `.js` extensions so compiled output works in Chrome.
+- Treat `dist/` as generated output.
 
 ```bash
-# File operations
-git mv <old-path> <new-path>  # Move files
-git rm <path>                  # Delete files
+npm run check
 ```
 
-## Agent skills
+## Voice Live Comment requirements
 
-### Issue tracker
-
-Issues are tracked in GitHub Issues. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-The default five-role vocabulary is used. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-This repository uses a single-context layout. See `docs/agents/domain.md`.
-
-## Template-First Chrome Extension Rules
-
-### WHY
-
-Keep repository structure, quality gates, and release automation aligned with `mizucopo/repo-template` while preserving Voice Live Comment's product behavior.
-
-### WHAT
-
-- Treat the current `repo-template` Chrome Extension output as the default source for shared configuration, workflows, and repository layout
-- Keep product-specific behavior, dependencies, and observable tests while adapting them to template changes
-- Keep TypeScript source, `manifest.json`, the options page, styles, and icons under `src/`
-- Use `dist/` as the built Chrome extension root
-- Keep `package.json` and `src/manifest.json` versions equal
-- Every Pull Request targeting `main`, including Dependabot Pull Requests, must use a new extension version
-- A merge to `main` creates a distribution release using the raw `X.Y.Z` tag
-- Do not edit `dist/` manually
-
-### HOW
-
-- Prefer accepting rendered template files unchanged; keep a project-specific difference only when Voice Live Comment requires it
-- Put Chrome API boundaries in entrypoints such as `background.ts`, `content.ts`, and `options.ts`
-- Test observable behavior through Vitest instead of generated JavaScript or private implementation details
-- Mock Chrome APIs only at entrypoint boundaries
-- Place tests in `tests/` and mirror `src/` structure when practical
-- Run `npm run check` before handing off changes
+- Preserve the YouTube comment behavior, STT providers, audio pipeline, options, icons, and observable tests when applying template updates. Follow `docs/adr/0002-adopt-template-first-chrome-extension-layout.md` for the template-first layout and repository-specific build requirements.
+- Keep TypeScript source, `manifest.json`, the options page, styles, and icons under `src/`; build the loadable extension into `dist/`.
+- Keep `package.json` and `src/manifest.json` versions equal. Every Pull Request targeting `main`, including Dependabot, must introduce a new extension version; merging creates a distribution release with the raw `X.Y.Z` tag.
+- Put Chrome API boundaries in entrypoints such as `background.ts`, `content.ts`, and `options.ts`, and mock Chrome APIs only at those boundaries.
+- Test observable behavior with Vitest and place tests in `tests/`, mirroring `src/` where practical.
+- Update related documentation when behavior or interfaces change, and document new feature usage in README. Split large documentation into `docs/` and link it from README.

@@ -21,7 +21,7 @@ export class GoogleSttProvider extends SttProvider {
   }
 
   override start(): Promise<void> {
-    this._emitStart();
+    this.emitStart();
     return Promise.resolve();
   }
 
@@ -31,7 +31,7 @@ export class GoogleSttProvider extends SttProvider {
 
   override async sendAudio(audioBlob: Blob): Promise<void> {
     if (!this.apiKey) {
-      this._emitError(
+      this.emitError(
         new Error("Google Cloud APIキーが設定されていません。設定画面で入力してください。"),
       );
       return;
@@ -81,10 +81,10 @@ export class GoogleSttProvider extends SttProvider {
         if (data.results && data.results.length > 0) {
           const text = data.results
             .map((result) => result.alternatives?.[0]?.transcript ?? "")
-            .filter((text) => text)
+            .filter((transcript) => transcript)
             .join("");
           if (text) {
-            this._emitResult(text);
+            this.emitResult(text);
           }
         }
         return;
@@ -98,6 +98,6 @@ export class GoogleSttProvider extends SttProvider {
       }
     }
 
-    this._emitError(lastError);
+    this.emitError(lastError);
   }
 }
