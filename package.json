@@ -1,6 +1,6 @@
 {
   "name": "voice-live-comment",
-  "version": "1.5.8",
+  "version": "1.5.9",
   "description": "音声認識でYouTube Liveにコメント投稿",
   "private": true,
   "author": "みず",
