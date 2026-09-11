@@ -30,7 +30,7 @@
     "prettier": "^3.9.6",
     "rollup": "^4.63.1",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^5.0.0"
   },
   "dependencies": {
     "onnxruntime-web": "^1.29.0"
