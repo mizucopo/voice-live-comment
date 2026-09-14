@@ -23,7 +23,7 @@
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@types/chrome": "^0.2.8",
     "@types/node": "^26.4.1",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^5.0.0",
     "jsdom": "^30.0.1",
     "oxlint": "^1.78.0",
     "oxlint-tsgolint": "^7.0.2001",
