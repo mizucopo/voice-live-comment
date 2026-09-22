@@ -23,4 +23,4 @@ Use the current `repo-template` Chrome Extension output as the default for share
 
 Copier updates should normally accept rendered template files and adapt product code around them. A project-specific deviation must identify the Voice Live Comment requirement that makes it necessary.
 
-Local development and Chrome loading use `dist/` after `npm run build`. Releases use `chrome-extension-{version}.zip`, the title `Chrome Extension {version}`, and the raw version as the Git tag.
+Local development and Chrome loading use `dist/` after `npm run build`. New releases use `{repository-name}-{version}.zip` (`voice-live-comment-{version}.zip` for this repository), the title `Chrome Extension {version}`, and the raw version as the Git tag. The repository name comes from the workflow's `GITHUB_REPOSITORY`, following the current template. Previously published `chrome-extension-{version}.zip` assets are not renamed or republished.
