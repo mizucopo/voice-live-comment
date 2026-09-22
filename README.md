@@ -68,7 +68,7 @@ npm run check
 - `package.json` と `src/manifest.json` のバージョンは常に一致させます。
 - `main` を対象にするすべてのPull Requestは、Dependabotを含め、新しいバージョンへ更新します。
 - `main` へのマージごとに `X.Y.Z` タグと配布版が作成されます。
-- 今後の配布ZIP名は `voice-live-comment-X.Y.Z.zip` です。リポジトリ名とバージョンから生成します。
+- 今後の配布ZIP名は `voice-live-comment-X.Y.Z.zip` です。実行を起動したpush時点のリポジトリ名とバージョンから生成するため、改名後の再実行でも同じ名前を使います。
 - 過去のリリースには `chrome-extension-X.Y.Z.zip` が添付されています。公開済みZIPの名前は変更しません。
 - 完了済みリリースのうち、`main` の履歴で最も新しいものをGitHub ReleasesのLatestに指定します。古いリリースの再実行ではLatestを巻き戻しません。
 
