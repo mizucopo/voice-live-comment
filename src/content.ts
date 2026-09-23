@@ -164,30 +164,16 @@ async function inputAndSubmit(text: string, autoPost: boolean, signal: AbortSign
         if (sendButton && !sendButton.disabled) {
           sendButton.click();
         } else {
-          input.dispatchEvent(
-            new KeyboardEvent("keydown", {
-              key: "Enter",
-              code: "Enter",
-              keyCode: 13,
-              bubbles: true,
-            }),
-          );
-          input.dispatchEvent(
-            new KeyboardEvent("keypress", {
-              key: "Enter",
-              code: "Enter",
-              keyCode: 13,
-              bubbles: true,
-            }),
-          );
-          input.dispatchEvent(
-            new KeyboardEvent("keyup", {
-              key: "Enter",
-              code: "Enter",
-              keyCode: 13,
-              bubbles: true,
-            }),
-          );
+          for (const type of ["keydown", "keypress", "keyup"]) {
+            input.dispatchEvent(
+              new KeyboardEvent(type, {
+                key: "Enter",
+                code: "Enter",
+                keyCode: 13,
+                bubbles: true,
+              }),
+            );
+          }
         }
         resolve();
       }, 200);
