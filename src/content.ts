@@ -1,10 +1,6 @@
-import {
-  trimText,
-  parseDictionaryRules,
-  applyDictionary,
-  type DictionaryRule,
-} from "./utils/text.js";
 import { DEFAULT_SETTINGS, normalizeSettings, type ExtensionSettings } from "./settings.js";
+import { CommentPostingQueue } from "./comment-posting.js";
+import { REVIEW_TIMEOUT_MS, type CommentReviewDecision } from "./comment-review.js";
 import type { SttProvider } from "./stt/stt-provider.js";
 import { BrowserSttProvider } from "./stt/browser-stt-provider.js";
 import { GoogleSttProvider } from "./stt/google-stt-provider.js";
@@ -14,9 +10,6 @@ import { VoiceCommentSession } from "./voice-comment-session.js";
 
 type ChatInput = HTMLElement | HTMLInputElement;
 type ValueElement = HTMLElement & { value: string };
-
-let settings: ExtensionSettings = { ...DEFAULT_SETTINGS };
-let parsedRules: DictionaryRule[] = [];
 
 // チャット入力欄を取得
 function findChatInput(): ChatInput | null {
@@ -54,9 +47,7 @@ const hasChat = !!findChatInput();
 // 設定を読み込む
 async function loadSettings(): Promise<ExtensionSettings> {
   const result = await chrome.storage.sync.get(DEFAULT_SETTINGS);
-  settings = normalizeSettings(result);
-  parsedRules = parseDictionaryRules(settings.dictionary);
-  return settings;
+  return normalizeSettings(result);
 }
 
 // 送信ボタンを取得
@@ -69,13 +60,52 @@ function findSendButton(): HTMLButtonElement | null {
   );
 }
 
-// テキストを入力して送信
-function inputAndSubmit(text: string): void {
-  text = trimText(text);
-  text = applyDictionary(text, parsedRules);
-  console.log("[Voice Live Comment] 確定:", text);
+async function requestReview(
+  text: string,
+  criteria: string,
+  signal: AbortSignal,
+): Promise<CommentReviewDecision> {
+  signal.throwIfAborted();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let abort: () => void = () => undefined;
+  try {
+    const response: unknown = await new Promise((resolve, reject) => {
+      abort = () => reject(new Error("投稿前レビューを取り消しました"));
+      signal.addEventListener("abort", abort, { once: true });
+      timeoutId = setTimeout(
+        () => reject(new Error("投稿前レビューがタイムアウトしたため、投稿しませんでした")),
+        REVIEW_TIMEOUT_MS,
+      );
+      chrome.runtime.sendMessage({ type: "REVIEW_COMMENT", text, criteria }).then(resolve, reject);
+    });
 
-  if (!text) return;
+    if (typeof response === "object" && response !== null && "ok" in response) {
+      if (
+        response.ok === true &&
+        "decision" in response &&
+        (response.decision === "post" || response.decision === "skip")
+      ) {
+        return response.decision;
+      }
+      if (response.ok === false && "error" in response && typeof response.error === "string") {
+        throw new Error(response.error);
+      }
+    }
+    throw new Error("投稿前レビューの応答が不正なため、投稿しませんでした");
+  } catch (error) {
+    throw new Error(
+      "投稿前レビューに失敗しました: " + (error instanceof Error ? error.message : String(error)),
+      { cause: error },
+    );
+  } finally {
+    clearTimeout(timeoutId);
+    signal.removeEventListener("abort", abort);
+  }
+}
+
+// 承認された本文を入力し、送信完了まで次のコメントを待たせる。
+async function inputAndSubmit(text: string, autoPost: boolean, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return;
 
   const input = findChatInput();
 
@@ -116,39 +146,39 @@ function inputAndSubmit(text: string): void {
     input.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
-  if (settings.autoPost) {
-    setTimeout(() => {
-      const sendButton = findSendButton();
+  if (autoPost && !signal.aborted) {
+    await new Promise<void>((resolve) => {
+      const cancel = () => {
+        clearTimeout(timeoutId);
+        resolve();
+      };
+      const timeoutId = setTimeout(() => {
+        signal.removeEventListener("abort", cancel);
+        const currentText = input instanceof HTMLInputElement ? input.value : input.textContent;
+        if (signal.aborted || findChatInput() !== input || currentText !== text) {
+          resolve();
+          return;
+        }
+        const sendButton = findSendButton();
 
-      if (sendButton && !sendButton.disabled) {
-        sendButton.click();
-      } else {
-        input.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            bubbles: true,
-          }),
-        );
-        input.dispatchEvent(
-          new KeyboardEvent("keypress", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            bubbles: true,
-          }),
-        );
-        input.dispatchEvent(
-          new KeyboardEvent("keyup", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            bubbles: true,
-          }),
-        );
-      }
-    }, 200);
+        if (sendButton && !sendButton.disabled) {
+          sendButton.click();
+        } else {
+          for (const type of ["keydown", "keypress", "keyup"]) {
+            input.dispatchEvent(
+              new KeyboardEvent(type, {
+                key: "Enter",
+                code: "Enter",
+                keyCode: 13,
+                bubbles: true,
+              }),
+            );
+          }
+        }
+        resolve();
+      }, 200);
+      signal.addEventListener("abort", cancel, { once: true });
+    });
   }
 }
 
@@ -158,7 +188,7 @@ function sendError(message: string): void {
 }
 
 // プロバイダーを作成
-function createProvider(providerSettings: ExtensionSettings = settings): SttProvider {
+function createProvider(providerSettings: ExtensionSettings): SttProvider {
   switch (providerSettings.sttProvider) {
     case "google":
       return new GoogleSttProvider(providerSettings.googleApiKey, providerSettings.language);
@@ -179,11 +209,19 @@ function createProvider(providerSettings: ExtensionSettings = settings): SttProv
   }
 }
 
+const postingQueue = new CommentPostingQueue({
+  review: requestReview,
+  submit: inputAndSubmit,
+  notifyError: sendError,
+});
+
 const session = new VoiceCommentSession({
   loadSettings,
   createProvider,
   createExternalPipeline,
-  postComment: inputAndSubmit,
+  postComment: (text, context) => {
+    void postingQueue.enqueue(text, context);
+  },
   notifyActive: (isActive) => {
     void chrome.runtime.sendMessage({ type: "UPDATE_BADGE", isActive });
   },
@@ -196,11 +234,10 @@ if (hasChat) {
     if (message.type === "TOGGLE_RECOGNITION") {
       sendResponse(session.toggle());
     } else if (message.type === "SETTINGS_UPDATED") {
-      void (async () => {
-        await loadSettings();
-        await session.restartWithLatestSettings();
-      })();
+      // Invalidate pending reviews synchronously, before loading the new settings.
+      void session.restartWithLatestSettings();
     }
     return true;
   });
+  window.addEventListener("pagehide", () => void session.stop());
 }

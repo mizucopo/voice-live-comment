@@ -115,6 +115,32 @@
       </div>
     </div>
 
+    <div id="commentReviewSettings" class="provider-settings">
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="commentReviewEnabled" />
+          Jevで投稿前レビューを有効にする
+        </label>
+        <div class="hint">
+          有効にすると、辞書適用後のコメント本文とレビュー基準をTypeSafeへ送信します。
+          承認された本文だけを入力し、自動投稿がオンの場合は送信します。
+          却下、APIキー未設定、通信失敗の場合は入力・投稿せず、既存の下書きを保持します。
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="typesafeApiKey">TypeSafe APIキー</label>
+        <input type="password" id="typesafeApiKey" placeholder="TypeSafe APIキー" />
+      </div>
+      <div class="form-group">
+        <label for="commentReviewCriteria">レビュー基準</label>
+        <textarea id="commentReviewCriteria" rows="8"></textarea>
+        <div class="hint">
+          独り言・短い感想・相づちは標準で許可します。空欄で保存すると標準の基準に戻ります。
+          音声や配信内容との照合は行わず、本文から判断できる範囲で評価します。
+        </div>
+      </div>
+    </div>
+
     <button id="save">保存</button>
     <div id="status" class="status"></div>
 

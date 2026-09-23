@@ -1,5 +1,6 @@
 import type { SttProvider } from "./stt/stt-provider.js";
 import type { ExtensionSettings } from "./settings.js";
+import type { CommentPostingContext } from "./comment-posting.js";
 
 export type VoiceCommentSettings = ExtensionSettings;
 
@@ -14,7 +15,7 @@ export type VoiceCommentSessionDependencies = {
     provider: SttProvider,
     settings: VoiceCommentSettings,
   ) => Promise<ExternalPipeline>;
-  postComment: (text: string) => void;
+  postComment: (text: string, context: CommentPostingContext) => void;
   notifyActive: (isActive: boolean) => void;
   notifyError: (message: string) => void;
   startTimeoutMs?: number;
@@ -39,6 +40,8 @@ export class VoiceCommentSession {
   private currentProvider: SttProvider | null;
   private externalPipeline: ExternalPipeline | null;
   private startTimeoutId: ReturnType<typeof setTimeout> | null;
+  private sessionController: AbortController | null = null;
+  private stopGeneration = 0;
 
   constructor({
     loadSettings,
@@ -81,13 +84,17 @@ export class VoiceCommentSession {
     }
 
     this.isStarting = true;
+    this.sessionController?.abort();
+    const controller = new AbortController();
+    this.sessionController = controller;
     this.startTimeoutId = setTimeout(() => {
-      if (this.isStarting && !this.isActive) {
+      if (!controller.signal.aborted && this.isStarting && !this.isActive) {
         void this.handleStartTimeout();
       }
     }, this.startTimeoutMs);
 
-    void this.start().catch((error: unknown) => {
+    void this.start(controller.signal).catch((error: unknown) => {
+      if (controller.signal.aborted) return;
       this.logger.error("[Voice Live Comment] startRecognition failed:", error);
       this.notifyError("音声認識の開始に失敗しました: " + errorMessage(error));
       this.finishStarting();
@@ -97,27 +104,33 @@ export class VoiceCommentSession {
   }
 
   async restartWithLatestSettings(): Promise<void> {
-    if (!this.isActive) return;
+    if (!this.isActive && !this.isStarting) return;
 
-    await this.stop();
-    this.toggle();
+    const controller = this.sessionController;
+    const stopping = this.stop();
+    const generation = this.stopGeneration;
+    await stopping;
+    if (this.sessionController === controller && this.stopGeneration === generation) this.toggle();
   }
 
   async stop(): Promise<void> {
+    this.stopGeneration++;
+    this.sessionController?.abort();
     this.isActive = false;
     this.finishStarting();
 
     const { provider, pipeline } = this.takeCurrentResources();
+    this.notifyActive(false);
 
     await this.stopExternalPipeline(pipeline);
     await this.stopProvider(provider);
 
-    this.notifyActive(false);
     this.logger.log("[Voice Live Comment] 音声認識を停止しました");
   }
 
-  private async start(): Promise<void> {
+  private async start(signal: AbortSignal): Promise<void> {
     const settings = await this.loadSettings();
+    if (signal.aborted) return;
 
     let provider: SttProvider;
     try {
@@ -129,12 +142,19 @@ export class VoiceCommentSession {
     }
 
     this.currentProvider = provider;
-    this.bindProvider(provider);
+    this.bindProvider(provider, { settings, signal });
 
     if (settings.sttProvider === "google" || settings.sttProvider === "grok") {
       try {
-        this.externalPipeline = await this.createExternalPipeline(provider, settings);
+        const pipeline = await this.createExternalPipeline(provider, settings);
+        if (signal.aborted) {
+          await this.stopExternalPipeline(pipeline);
+          return;
+        }
+        this.externalPipeline = pipeline;
       } catch (error) {
+        if (signal.aborted) return;
+        this.sessionController?.abort();
         this.notifyError("VADの初期化に失敗しました: " + errorMessage(error));
         this.currentProvider = null;
         this.finishStarting();
@@ -145,13 +165,16 @@ export class VoiceCommentSession {
     try {
       await provider.start();
     } catch (error) {
+      if (signal.aborted) return;
       await this.cleanupFailedStart();
-      this.notifyError(errorMessage(error));
+      if (this.sessionController?.signal === signal) this.notifyError(errorMessage(error));
     }
   }
 
-  private bindProvider(provider: SttProvider): void {
+  private bindProvider(provider: SttProvider, context: CommentPostingContext): void {
+    const { signal } = context;
     provider.onStart(() => {
+      if (signal.aborted) return;
       this.isActive = true;
       this.finishStarting();
       this.notifyActive(true);
@@ -159,10 +182,11 @@ export class VoiceCommentSession {
     });
 
     provider.onResult((text) => {
-      this.postComment(text);
+      if (!signal.aborted && this.isActive) this.postComment(text, context);
     });
 
     provider.onError((error) => {
+      if (signal.aborted) return;
       this.notifyError(error.message);
       if (this.isStarting) {
         this.finishStarting();
@@ -171,24 +195,28 @@ export class VoiceCommentSession {
   }
 
   private async cleanupFailedStart(): Promise<void> {
+    this.sessionController?.abort();
     const { provider, pipeline } = this.takeCurrentResources();
-
-    await this.stopExternalPipeline(pipeline);
-    await this.stopProvider(provider);
     this.isActive = false;
     this.finishStarting();
+    await this.stopExternalPipeline(pipeline);
+    await this.stopProvider(provider);
   }
 
   private async handleStartTimeout(): Promise<void> {
     this.logger.warn("[Voice Live Comment] 音声認識の開始がタイムアウトしました");
 
+    const controller = this.sessionController;
+    controller?.abort();
     const { provider, pipeline } = this.takeCurrentResources();
 
     await this.stopExternalPipeline(pipeline);
     await this.stopProvider(provider);
 
-    this.finishStarting();
-    this.notifyError("音声認識の開始がタイムアウトしました。再度お試しください。");
+    if (this.sessionController === controller) {
+      this.finishStarting();
+      this.notifyError("音声認識の開始がタイムアウトしました。再度お試しください。");
+    }
   }
 
   private takeCurrentResources(): {

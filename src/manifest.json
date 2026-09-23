@@ -1,10 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Voice Live Comment",
-  "version": "1.5.15",
+  "version": "1.6.0",
   "description": "音声認識でYouTube Liveにコメント投稿",
   "permissions": ["storage", "activeTab", "notifications", "scripting"],
-  "host_permissions": ["*://www.youtube.com/*", "*://studio.youtube.com/*", "https://api.x.ai/*"],
+  "host_permissions": [
+    "*://www.youtube.com/*",
+    "*://studio.youtube.com/*",
+    "https://api.x.ai/*",
+    "https://api.typesafe.ai/*"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"

@@ -60,7 +60,7 @@ describe("content.js", () => {
       expect(sendResponse).toHaveBeenCalledWith({ isActive: false });
     });
 
-    it("SETTINGS_UPDATEDで設定を再読み込み", async () => {
+    it("停止中に更新した設定を次回開始時に読み込む", async () => {
       vi.resetModules();
       chrome.storage.sync.get.mockResolvedValue({
         sttProvider: "browser",
@@ -76,6 +76,7 @@ describe("content.js", () => {
       const listener = getMessageListener();
 
       listener({ type: "SETTINGS_UPDATED" }, {}, vi.fn());
+      listener({ type: "TOGGLE_RECOGNITION" }, {}, vi.fn());
 
       await new Promise((resolve) => setTimeout(resolve, 10));
       expect(chrome.storage.sync.get).toHaveBeenCalled();

@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { loadSettings, resetRecognitionVolumeThreshold, saveSettings } from "../src/options.js";
+import { DEFAULT_COMMENT_REVIEW_CRITERIA, DEFAULT_SETTINGS } from "../src/settings.js";
 import { mockStorage, mockTabs } from "./setup.js";
 
 type TestElement = HTMLElement & HTMLInputElement & HTMLSelectElement & HTMLTextAreaElement;
@@ -9,6 +11,7 @@ type TestDocument = Omit<Document, "getElementById"> & {
 
 const document = globalThis.document as TestDocument;
 const chrome = { storage: mockStorage, tabs: mockTabs };
+const optionsPage = readFileSync("src/popup.html", "utf8");
 
 describe("options.js", () => {
   let autoPostCheckbox: HTMLInputElement;
@@ -16,30 +19,10 @@ describe("options.js", () => {
   let statusElement: HTMLElement;
 
   beforeEach(() => {
-    // DOM構築
-    document.body.innerHTML = `
-      <select id="sttProvider">
-        <option value="browser">ブラウザ音声認識</option>
-        <option value="google">Google Cloud STT</option>
-        <option value="grok">Grok STT</option>
-      </select>
-      <input type="password" id="googleApiKey" />
-      <input type="password" id="xaiApiKey" />
-      <input type="range" id="recognitionVolumeThreshold" min="0" max="0.20" step="0.01" value="0.05" />
-      <span id="recognitionVolumeThresholdValue"></span>
-      <button id="resetRecognitionVolumeThreshold" type="button">デフォルトに戻す</button>
-      <div id="browserSettings">
-        <input type="checkbox" id="autoPost" />
-        <input type="text" id="language" />
-        <input type="checkbox" id="useLocalModel" />
-        <textarea id="boostPhrases"></textarea>
-        <textarea id="dictionary"></textarea>
-      </div>
-      <div id="googleSettings" style="display:none"></div>
-      <div id="grokSettings" style="display:none"></div>
-      <div id="status"></div>
-      <button id="save">保存</button>
-    `;
+    document.body.innerHTML = new DOMParser().parseFromString(
+      optionsPage,
+      "text/html",
+    ).body.innerHTML;
     autoPostCheckbox = document.getElementById("autoPost");
     languageInput = document.getElementById("language");
     statusElement = document.getElementById("status");
@@ -74,6 +57,11 @@ describe("options.js", () => {
       expect(document.getElementById("recognitionVolumeThreshold").value).toBe("0.05");
       expect(document.getElementById("recognitionVolumeThresholdValue").textContent).toBe(
         "現在: 0.05 / デフォルト: 0.05",
+      );
+      expect(document.getElementById("commentReviewEnabled").checked).toBe(false);
+      expect(document.getElementById("typesafeApiKey").value).toBe("");
+      expect(document.getElementById("commentReviewCriteria").value).toBe(
+        DEFAULT_COMMENT_REVIEW_CRITERIA,
       );
     });
 
@@ -131,6 +119,7 @@ describe("options.js", () => {
       await saveSettings();
 
       expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        ...DEFAULT_SETTINGS,
         sttProvider: "browser",
         autoPost: true,
         language: "en-US",
@@ -151,6 +140,7 @@ describe("options.js", () => {
       await saveSettings();
 
       expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        ...DEFAULT_SETTINGS,
         sttProvider: "browser",
         autoPost: true,
         language: "ja-JP",
@@ -197,6 +187,7 @@ describe("options.js", () => {
       await saveSettings();
 
       expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        ...DEFAULT_SETTINGS,
         sttProvider: "browser",
         autoPost: true,
         language: "ja-JP",
@@ -266,39 +257,72 @@ describe("options.js", () => {
     });
   });
 
+  describe("投稿前レビュー設定", () => {
+    it("有効化・APIキー・レビュー基準を保存して復元する", async () => {
+      document.getElementById("commentReviewEnabled").checked = true;
+      document.getElementById("typesafeApiKey").value = "  typesafe-key  ";
+      document.getElementById("commentReviewCriteria").value =
+        "  独り言は許可する。\n脅迫は除外する。  ";
+
+      const saved = await saveSettings();
+
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          commentReviewEnabled: true,
+          typesafeApiKey: "typesafe-key",
+          commentReviewCriteria: "独り言は許可する。\n脅迫は除外する。",
+        }),
+      );
+
+      document.getElementById("commentReviewEnabled").checked = false;
+      document.getElementById("typesafeApiKey").value = "";
+      document.getElementById("commentReviewCriteria").value = "";
+      chrome.storage.sync.get.mockResolvedValue(saved);
+
+      await loadSettings();
+
+      expect(document.getElementById("commentReviewEnabled").checked).toBe(true);
+      expect(document.getElementById("typesafeApiKey").value).toBe("typesafe-key");
+      expect(document.getElementById("typesafeApiKey").type).toBe("password");
+      expect(document.getElementById("commentReviewCriteria").value).toBe(
+        "独り言は許可する。\n脅迫は除外する。",
+      );
+
+      document.getElementById("commentReviewEnabled").checked = false;
+      const disabled = await saveSettings();
+
+      expect(disabled).toEqual({ ...saved, commentReviewEnabled: false });
+    });
+
+    it("空白の基準を保存すると標準に戻してフォームにも反映する", async () => {
+      document.getElementById("commentReviewCriteria").value = "  \n  ";
+
+      const saved = await saveSettings();
+
+      expect(saved.commentReviewCriteria).toBe(DEFAULT_COMMENT_REVIEW_CRITERIA);
+      expect(document.getElementById("commentReviewCriteria").value).toBe(
+        DEFAULT_COMMENT_REVIEW_CRITERIA,
+      );
+    });
+
+    it.each(["browser", "google", "grok"])(
+      "%sを選んでもレビュー設定を表示する",
+      async (sttProvider) => {
+        chrome.storage.sync.get.mockResolvedValue({ sttProvider });
+
+        await loadSettings();
+
+        const reviewSettings = document.getElementById("commentReviewSettings");
+        expect(
+          reviewSettings.closest("#browserSettings, #googleSettings, #grokSettings"),
+        ).toBeNull();
+        expect(reviewSettings.style.display).not.toBe("none");
+        expect(document.getElementById("commentReviewEnabled").checked).toBe(false);
+      },
+    );
+  });
+
   describe("STT Provider設定", () => {
-    beforeEach(() => {
-      document.body.innerHTML = `
-        <select id="sttProvider">
-          <option value="browser">ブラウザ音声認識</option>
-          <option value="google">Google Cloud STT</option>
-          <option value="grok">Grok STT</option>
-        </select>
-        <input type="password" id="googleApiKey" />
-        <input type="password" id="xaiApiKey" />
-        <input type="range" id="recognitionVolumeThreshold" min="0" max="0.20" step="0.01" value="0.05" />
-        <span id="recognitionVolumeThresholdValue"></span>
-        <button id="resetRecognitionVolumeThreshold" type="button">デフォルトに戻す</button>
-        <div id="browserSettings">
-          <input type="checkbox" id="useLocalModel" />
-          <textarea id="boostPhrases"></textarea>
-          <textarea id="dictionary"></textarea>
-        </div>
-        <div id="googleSettings" style="display:none"></div>
-        <div id="grokSettings" style="display:none"></div>
-        <input type="checkbox" id="autoPost" />
-        <input type="text" id="language" value="ja-JP" />
-        <div id="status"></div>
-        <button id="save">保存</button>
-      `;
-      vi.clearAllMocks();
-      vi.useFakeTimers();
-    });
-
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
     it("sttProvider設定を保存・読み込みする", async () => {
       chrome.storage.sync.get.mockResolvedValue({
         sttProvider: "google",
