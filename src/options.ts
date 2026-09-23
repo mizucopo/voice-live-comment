@@ -8,6 +8,7 @@ import {
 } from "./recognition-volume-gate.js";
 import {
   DEFAULT_SETTINGS,
+  normalizeCommentReviewCriteria,
   normalizeSettings,
   normalizeSttProvider,
   type ExtensionSettings,
@@ -94,6 +95,9 @@ export async function loadSettings(): Promise<ExtensionSettings> {
   textAreaElement("dictionary").value = result.dictionary;
   inputElement("googleApiKey").value = result.googleApiKey;
   inputElement("xaiApiKey").value = result.xaiApiKey;
+  inputElement("commentReviewEnabled").checked = result.commentReviewEnabled;
+  inputElement("typesafeApiKey").value = result.typesafeApiKey;
+  textAreaElement("commentReviewCriteria").value = result.commentReviewCriteria;
   updateProviderUI(result.sttProvider);
   return result;
 }
@@ -114,6 +118,13 @@ export async function saveSettings(): Promise<ExtensionSettings> {
   const dictionary = textAreaElement("dictionary").value;
   const googleApiKey = inputElement("googleApiKey").value.trim();
   const xaiApiKey = inputElement("xaiApiKey").value.trim();
+  const commentReviewEnabled = inputElement("commentReviewEnabled").checked;
+  const typesafeApiKey = inputElement("typesafeApiKey").value.trim();
+  const commentReviewCriteria = normalizeCommentReviewCriteria(
+    textAreaElement("commentReviewCriteria").value,
+  );
+  inputElement("typesafeApiKey").value = typesafeApiKey;
+  textAreaElement("commentReviewCriteria").value = commentReviewCriteria;
 
   const settings: ExtensionSettings = {
     sttProvider,
@@ -125,6 +136,9 @@ export async function saveSettings(): Promise<ExtensionSettings> {
     dictionary,
     googleApiKey,
     xaiApiKey,
+    commentReviewEnabled,
+    typesafeApiKey,
+    commentReviewCriteria,
   };
 
   await chrome.storage.sync.set(settings);

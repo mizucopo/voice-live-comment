@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { updateBadge, setBadgeError, showNotification } from "../src/background.js";
-import { chromeMocks, mockRuntime } from "./setup.js";
+import { chromeMocks, mockRuntime, mockStorage } from "./setup.js";
 
 const chrome = chromeMocks;
 
@@ -77,6 +77,118 @@ describe("background.js", () => {
   });
 
   describe("onMessage handler", () => {
+    it.each(["post", "skip"])(
+      "REVIEW_COMMENTは保存済みAPIキーで判定して%sを返す",
+      async (decision) => {
+        mockStorage.sync.get.mockResolvedValue({ typesafeApiKey: "stored-typesafe-key" });
+        global.fetch = vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            answers: {
+              decision: {
+                type: "choice",
+                choice: decision,
+                probabilities: {
+                  post: decision === "post" ? 1 : 0,
+                  skip: decision === "skip" ? 1 : 0,
+                },
+                confidence: 1,
+              },
+            },
+          }),
+        });
+        await importBackground();
+        const sendResponse = vi.fn();
+        const result = getMessageListener()(
+          {
+            type: "REVIEW_COMMENT",
+            text: "いいね！",
+            criteria: "独り言も許可する",
+            apiKey: "untrusted-message-key",
+            endpoint: "https://untrusted.example/",
+          },
+          {},
+          sendResponse,
+        );
+        expect(result).toBe(true);
+        await vi.waitFor(() => {
+          expect(sendResponse).toHaveBeenCalledWith({ ok: true, decision });
+        });
+        expect(mockStorage.sync.get).toHaveBeenCalledWith({ typesafeApiKey: "" });
+        expect(fetch).toHaveBeenCalledWith(
+          "https://api.typesafe.ai/v1/systemone",
+          expect.objectContaining({
+            headers: {
+              Authorization: "Bearer stored-typesafe-key",
+              "Content-Type": "application/json",
+            },
+          }),
+        );
+        expect(chrome.notifications.create).not.toHaveBeenCalled();
+      },
+    );
+
+    it("REVIEW_COMMENTは保存済みAPIキーがなければ投稿判定を返さない", async () => {
+      global.fetch = vi.fn();
+      await importBackground();
+      const sendResponse = vi.fn();
+      expect(
+        getMessageListener()(
+          { type: "REVIEW_COMMENT", text: "いいね", criteria: "感想を許可する", apiKey: "ignored" },
+          {},
+          sendResponse,
+        ),
+      ).toBe(true);
+      await vi.waitFor(() => {
+        expect(sendResponse).toHaveBeenCalledWith({
+          ok: false,
+          error: expect.stringContaining("TypeSafe APIキーが設定されていません"),
+        });
+      });
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("REVIEW_COMMENTは保存設定の読み取り失敗をエラー応答にする", async () => {
+      mockStorage.sync.get.mockRejectedValue(new Error("storage unavailable"));
+      await importBackground();
+      const sendResponse = vi.fn();
+      getMessageListener()(
+        { type: "REVIEW_COMMENT", text: "いいね", criteria: "感想を許可する" },
+        {},
+        sendResponse,
+      );
+      await vi.waitFor(() => {
+        expect(sendResponse).toHaveBeenCalledWith({ ok: false, error: "storage unavailable" });
+      });
+    });
+
+    it("REVIEW_COMMENTはAPI通信失敗をエラー応答にする", async () => {
+      mockStorage.sync.get.mockResolvedValue({ typesafeApiKey: "stored-typesafe-key" });
+      global.fetch = vi.fn().mockRejectedValue(new Error("network unavailable"));
+      await importBackground();
+      const sendResponse = vi.fn();
+      getMessageListener()(
+        { type: "REVIEW_COMMENT", text: "いいね", criteria: "感想を許可する" },
+        {},
+        sendResponse,
+      );
+      await vi.waitFor(() => {
+        expect(sendResponse).toHaveBeenCalledWith({ ok: false, error: "network unavailable" });
+      });
+    });
+
+    it.each([
+      { type: "REVIEW_COMMENT", text: 1, criteria: "基準" },
+      { type: "REVIEW_COMMENT", text: "本文" },
+    ])("不正なREVIEW_COMMENTメッセージでは通信しない (%j)", async (message) => {
+      global.fetch = vi.fn();
+      await importBackground();
+      const sendResponse = vi.fn();
+      expect(getMessageListener()(message, {}, sendResponse)).toBeUndefined();
+      expect(sendResponse).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
     it("UPDATE_BADGEメッセージでupdateBadgeを呼ぶ", async () => {
       await importBackground();
 

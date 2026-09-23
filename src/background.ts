@@ -1,5 +1,6 @@
 import { isTargetPage } from "./utils/url.js";
 import { recognizeGrokSpeech, type GrokSttMessage } from "./stt/grok-stt-service.js";
+import { reviewComment, type CommentReviewResponse } from "./comment-review.js";
 
 type ToggleResponse = { isActive: boolean };
 
@@ -26,6 +27,17 @@ function isGrokSttMessage(value: unknown): value is GrokSttMessage & { type: str
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+async function handleCommentReview(text: string, criteria: string): Promise<CommentReviewResponse> {
+  try {
+    const stored = await chrome.storage.sync.get({ typesafeApiKey: "" });
+    const apiKey = typeof stored.typesafeApiKey === "string" ? stored.typesafeApiKey : "";
+    const decision = await reviewComment({ text, criteria, apiKey });
+    return { ok: true, decision };
+  } catch (error) {
+    return { ok: false, error: errorMessage(error) };
+  }
 }
 
 // アイコンクリック時の処理
@@ -121,6 +133,14 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
     console.error("[Voice Live Comment] エラー:", message.message);
     setBadgeError();
     showNotification("エラー", message.message);
+  } else if (
+    isRecord(message) &&
+    message.type === "REVIEW_COMMENT" &&
+    typeof message.text === "string" &&
+    typeof message.criteria === "string"
+  ) {
+    void handleCommentReview(message.text, message.criteria).then(sendResponse);
+    return true;
   } else if (isGrokSttMessage(message)) {
     recognizeGrokSpeech(message)
       .then((text) => {

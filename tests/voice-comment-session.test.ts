@@ -117,7 +117,10 @@ describe("VoiceCommentSession", () => {
     provider.emitStart();
     provider.emitResult("こんにちは");
 
-    expect(dependencies.postComment).toHaveBeenCalledWith("こんにちは");
+    expect(dependencies.postComment).toHaveBeenCalledWith("こんにちは", {
+      settings: DEFAULT_SETTINGS,
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it("開始タイムアウト時に保留中の provider を停止してから再試行を許可する", async () => {
@@ -169,5 +172,99 @@ describe("VoiceCommentSession", () => {
 
     expect(firstProvider.stop).toHaveBeenCalledTimes(1);
     expect(secondProvider.stop).not.toHaveBeenCalled();
+  });
+
+  it.each(["browser", "google", "grok"] as const)(
+    "%s の停止時は投稿を即座に取り消し、古い結果を再開後にも渡さない",
+    async (sttProvider) => {
+      dependencies.loadSettings.mockResolvedValue({ ...DEFAULT_SETTINGS, sttProvider });
+      const deferredStop = createDeferred();
+      const pipeline = { stop: vi.fn().mockReturnValue(deferredStop.promise) };
+      dependencies.createExternalPipeline.mockResolvedValue(pipeline);
+      const session = new VoiceCommentSession(dependencies);
+      session.toggle();
+      await flushAsyncWork();
+      provider.emitStart();
+      provider.emitResult("最初のコメント");
+      const context = dependencies.postComment.mock.calls[0]?.[1];
+      expect(context?.signal.aborted).toBe(false);
+
+      const oldProvider = provider;
+      const stopping = session.stop();
+      expect(context?.signal.aborted).toBe(true);
+      oldProvider.emitResult("停止後の結果");
+      const newProvider = new FakeProvider();
+      dependencies.createProvider.mockReturnValue(newProvider);
+      session.toggle();
+      await flushAsyncWork();
+      newProvider.emitStart();
+      oldProvider.emitStart();
+      oldProvider.emitResult("再開後に遅れて届く結果");
+      oldProvider.emitError(new Error("古いエラー"));
+      deferredStop.resolve();
+      await stopping;
+
+      expect(dependencies.postComment).toHaveBeenCalledTimes(1);
+      expect(dependencies.notifyError).not.toHaveBeenCalled();
+      expect(dependencies.notifyActive).toHaveBeenLastCalledWith(true);
+      newProvider.emitResult("新しいコメント");
+      expect(dependencies.postComment).toHaveBeenLastCalledWith("新しいコメント", {
+        settings: { ...DEFAULT_SETTINGS, sttProvider },
+        signal: expect.any(AbortSignal),
+      });
+      await session.stop();
+    },
+  );
+
+  it("設定取得中に停止した開始処理からはプロバイダーを作らない", async () => {
+    const loading = createDeferred();
+    dependencies.loadSettings.mockImplementation(async () => {
+      await loading.promise;
+      return DEFAULT_SETTINGS;
+    });
+    const session = new VoiceCommentSession(dependencies);
+    session.toggle();
+    await session.stop();
+    loading.resolve();
+    await flushAsyncWork();
+    expect(dependencies.createProvider).not.toHaveBeenCalled();
+  });
+
+  it("設定再起動の停止待ち中に明示停止したら再開しない", async () => {
+    const deferredStop = createDeferred();
+    dependencies.loadSettings.mockResolvedValue({ ...DEFAULT_SETTINGS, sttProvider: "grok" });
+    dependencies.createExternalPipeline.mockResolvedValue({ stop: () => deferredStop.promise });
+    const session = new VoiceCommentSession(dependencies);
+    session.toggle();
+    await flushAsyncWork();
+    provider.emitStart();
+    const restarting = session.restartWithLatestSettings();
+    await session.stop();
+    deferredStop.resolve();
+    await restarting;
+    expect(dependencies.createProvider).toHaveBeenCalledOnce();
+    expect(session.snapshot()).toEqual({ isActive: false });
+  });
+
+  it("外部パイプライン初期化中の停止後は、完成したパイプラインも終了する", async () => {
+    const initializing = createDeferred();
+    const pipeline = { stop: vi.fn().mockResolvedValue(undefined) };
+    dependencies.loadSettings.mockResolvedValue({ ...DEFAULT_SETTINGS, sttProvider: "grok" });
+    dependencies.createExternalPipeline.mockImplementation(async () => {
+      await initializing.promise;
+      return pipeline;
+    });
+    const session = new VoiceCommentSession(dependencies);
+    session.toggle();
+    await flushAsyncWork();
+    await session.stop();
+    initializing.resolve();
+    await flushAsyncWork();
+    expect(pipeline.stop).toHaveBeenCalledOnce();
+    expect(provider.start).not.toHaveBeenCalled();
+    provider.emitResult("遅い結果");
+    provider.emitStart();
+    expect(dependencies.postComment).not.toHaveBeenCalled();
+    expect(session.snapshot()).toEqual({ isActive: false });
   });
 });
