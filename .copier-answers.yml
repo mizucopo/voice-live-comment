@@ -1,4 +1,4 @@
-_commit: 1cb58c9
+_commit: 204dff8
 _src_path: git@github.com:mizucopo/repo-template.git
 author_email: mizu.copo@gmail.com
 author_name: みず
@@ -6,7 +6,6 @@ chrome_extension_description: 音声認識でYouTube Liveにコメント投稿
 chrome_extension_name: Voice Live Comment
 chrome_extension_release_notes: Chrome Extension distribution package for {version}.
 chrome_extension_release_package_root_directory: .
-chrome_extension_release_title: Chrome Extension {version}
 chrome_extension_version: 1.6.1
 node_version: '24'
 project_description: 音声認識でYouTube Liveにコメント投稿
@@ -16,7 +15,6 @@ use_chrome_extension: true
 use_dependabot_github_actions: true
 use_docker: false
 use_gh_actions_chrome_extension_release: true
-use_gh_actions_pr_tag_check: true
 use_gh_actions_release: false
 use_mit_license: true
 use_python: false
