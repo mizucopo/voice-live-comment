@@ -1,0 +1,25 @@
+{
+  "version": {
+    "scheme": "chrome",
+    "sources": [
+      { "path": "package.json", "format": "json", "key": ["version"] },
+      { "path": "src/manifest.json", "format": "json", "key": ["version"] }
+    ],
+    "locks": [
+      { "path": "package-lock.json", "format": "json", "key": ["version"], "optional": true },
+      {
+        "path": "package-lock.json",
+        "format": "json",
+        "key": ["packages", "", "version"],
+        "optional": true
+      }
+    ]
+  },
+  "publication": {
+    "release_tag": "{version}",
+    "github_release": true,
+    "release_paths": ["version", "revision", "Dockerfile"],
+    "latest_image": null,
+    "images": []
+  }
+}

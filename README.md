@@ -67,8 +67,9 @@ npm run check
 ## バージョンとリリース
 
 - `package.json` と `src/manifest.json` のバージョンは常に一致させます。
-- `main` を対象にするすべてのPull Requestは、Dependabotを含め、新しいバージョンへ更新します。
-- `main` へのマージごとに `X.Y.Z` タグと配布版が作成されます。
+- 公開するPull Requestは、Dependabotを含め、[CONTRIBUTING.md](CONTRIBUTING.md#リリース分類) に従ってリリース分類ラベルと理由を設定し、squash mergeします。
+- マージ後にActionsが最新のマージ済みPRの分類でバージョンを自動更新し、同じコミットから `X.Y.Z` タグと配布版を作成します。PRでの手動採番は不要です。
+- 最新のマージ済みPRに分類ラベルがない場合は公開をスキップします。採番・公開の設定と復旧手順は [docs/release.md](docs/release.md) を参照してください。
 - 今後の配布ZIP名は `voice-live-comment-X.Y.Z.zip` です。実行を起動したpush時点のリポジトリ名とバージョンから生成するため、改名後の再実行でも同じ名前を使います。
 - 過去のリリースには `chrome-extension-X.Y.Z.zip` が添付されています。公開済みZIPの名前は変更しません。
 - 完了済みリリースのうち、`main` の履歴で最も新しいものをGitHub ReleasesのLatestに指定します。古いリリースの再実行ではLatestを巻き戻しません。
@@ -76,6 +77,7 @@ npm run check
 ## 設計資料
 
 - [テンプレート優先のChrome拡張レイアウト](docs/adr/0002-adopt-template-first-chrome-extension-layout.md)
+- [テンプレート標準の自動採番と公開](docs/adr/0003-adopt-automatic-release-numbering.md)
 
 ## 使い方
 

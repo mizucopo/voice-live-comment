@@ -1,6 +1,6 @@
 # Adopt the Template-First Chrome Extension Layout
 
-Status: Accepted
+Status: Accepted; release numbering and publication rules superseded by [ADR 0003](0003-adopt-automatic-release-numbering.md).
 
 ## Context
 
@@ -25,4 +25,4 @@ Copier updates should normally accept rendered template files and adapt product 
 
 Local development and Chrome loading use `dist/` after `npm run build`. New releases use `{repository-name}-{version}.zip` (`voice-live-comment-{version}.zip` for this repository), the title `Chrome Extension {version}`, and the raw version as the Git tag. The repository name comes from the original push event so reruns preserve the published asset name after a repository rename. Previously published `chrome-extension-{version}.zip` assets are not renamed or republished.
 
-The release workflow temporarily differs from the template to read the original push event's `repository.full_name` from `GITHUB_EVENT_PATH`, while API requests continue to use the current `GITHUB_REPOSITORY`. This preserves exact asset matching and rerunnable releases without renaming published files. GitHub defines the [event context](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#github-context) as the triggering webhook payload. Track the shared fix in [repo-template #93](https://github.com/mizucopo/repo-template/issues/93); remove this exception only after applying and verifying the template-provided replacement.
+The release workflow previously differed from the template to read the original push event's `repository.full_name` from `GITHUB_EVENT_PATH`, while API requests continued to use the current `GITHUB_REPOSITORY`. The current template now supplies this behavior; the temporary exception tracked in [repo-template #93](https://github.com/mizucopo/repo-template/issues/93) is removed after applying and verifying its replacement. Distribution ZIP names remain stable when the original event is rerun after a repository rename.
