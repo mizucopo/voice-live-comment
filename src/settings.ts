@@ -40,12 +40,11 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   commentReviewCriteria: DEFAULT_COMMENT_REVIEW_CRITERIA,
 };
 
-const SUPPORTED_STT_PROVIDERS = new Set<SttProviderName>(["browser", "google", "grok"]);
-
-export function normalizeSttProvider(provider: unknown): SttProviderName {
-  return typeof provider === "string" && SUPPORTED_STT_PROVIDERS.has(provider as SttProviderName)
-    ? (provider as SttProviderName)
-    : DEFAULT_SETTINGS.sttProvider;
+export function normalizeSttProvider(
+  provider: unknown = DEFAULT_SETTINGS.sttProvider,
+): SttProviderName {
+  if (provider === "browser" || provider === "google" || provider === "grok") return provider;
+  throw new Error("STTプロバイダーの設定が不正です");
 }
 
 export function normalizeCommentReviewCriteria(value: unknown): string {

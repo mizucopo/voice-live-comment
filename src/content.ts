@@ -199,7 +199,6 @@ function createProvider(providerSettings: ExtensionSettings): SttProvider {
         providerSettings.boostPhrases,
       );
     case "browser":
-    default:
       return new BrowserSttProvider({
         language: providerSettings.language,
         useLocalModel: providerSettings.useLocalModel,

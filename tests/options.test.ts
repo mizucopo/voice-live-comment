@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { loadSettings, resetRecognitionVolumeThreshold, saveSettings } from "../src/options.js";
+import {
+  init,
+  loadSettings,
+  resetRecognitionVolumeThreshold,
+  saveSettings,
+} from "../src/options.js";
 import { DEFAULT_COMMENT_REVIEW_CRITERIA, DEFAULT_SETTINGS } from "../src/settings.js";
 import { mockStorage, mockTabs } from "./setup.js";
 
@@ -111,6 +116,15 @@ describe("options.js", () => {
   });
 
   describe("saveSettings", () => {
+    it("プロバイダーを選択していない場合は保存も設定更新通知もしない", async () => {
+      document.getElementById("sttProvider").value = "";
+
+      await expect(saveSettings()).rejects.toThrow("STTプロバイダーの設定が不正です");
+
+      expect(chrome.storage.sync.set).not.toHaveBeenCalled();
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
+    });
+
     it("設定を保存する", async () => {
       autoPostCheckbox.checked = true;
       languageInput.value = "en-US";
@@ -377,9 +391,9 @@ describe("options.js", () => {
       expect(document.getElementById("googleSettings").style.display).not.toBe("none");
     });
 
-    it("サポート外プロバイダー設定はブラウザ音声認識として読み込む", async () => {
+    it("不正なプロバイダー設定をブラウザ音声認識へ置き換えない", async () => {
       chrome.storage.sync.get.mockResolvedValue({
-        sttProvider: "speechmatics",
+        sttProvider: 42,
         autoPost: true,
         language: "ja-JP",
         useLocalModel: false,
@@ -389,11 +403,7 @@ describe("options.js", () => {
         xaiApiKey: "",
       });
 
-      await loadSettings();
-
-      expect(document.getElementById("sttProvider").value).toBe("browser");
-      expect(document.getElementById("browserSettings").style.display).not.toBe("none");
-      expect(document.getElementById("googleSettings").style.display).toBe("none");
+      await expect(loadSettings()).rejects.toThrow("STTプロバイダーの設定が不正です");
     });
 
     it("Grok選択時にGrok設定が表示される", async () => {
@@ -438,6 +448,16 @@ describe("options.js", () => {
           xaiApiKey: "xai-key",
         }),
       );
+    });
+  });
+
+  it("読み込めない設定のエラーを画面に表示する", async () => {
+    chrome.storage.sync.get.mockResolvedValue({ ...DEFAULT_SETTINGS, sttProvider: 42 });
+    init();
+    document.dispatchEvent(new Event("DOMContentLoaded"));
+
+    await vi.waitFor(() => {
+      expect(statusElement.textContent).toBe("STTプロバイダーの設定が不正です");
     });
   });
 });

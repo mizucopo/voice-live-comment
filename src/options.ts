@@ -165,7 +165,9 @@ export async function saveSettings(): Promise<ExtensionSettings> {
 // 初期化
 export function init(): void {
   document.addEventListener("DOMContentLoaded", () => {
-    void loadSettings();
+    void loadSettings().catch((error: unknown) => {
+      element("status").textContent = error instanceof Error ? error.message : String(error);
+    });
   });
   element("save").addEventListener("click", () => void saveSettings());
   inputElement("recognitionVolumeThreshold").addEventListener("input", (event) => {
