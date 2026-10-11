@@ -6,9 +6,14 @@ import {
 } from "../src/settings.js";
 
 describe("settings", () => {
-  it("旧設定には無効の投稿前レビュー設定を補い、既存設定を維持する", () => {
-    const legacySettings = {
-      sttProvider: "grok" as const,
+  it("未保存の設定には初期値を使う", () => {
+    expect(normalizeSettings({})).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it.each(["browser", "google", "grok"] as const)("%s の現行設定を保持する", (sttProvider) => {
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      sttProvider,
       autoPost: false,
       language: "en-US",
       useLocalModel: true,
@@ -17,15 +22,12 @@ describe("settings", () => {
       dictionary: "とーきょー→東京",
       googleApiKey: "google-key",
       xaiApiKey: "xai-key",
+      commentReviewEnabled: true,
+      typesafeApiKey: "typesafe-key",
+      commentReviewCriteria: "脅迫を除外する。",
     };
 
-    expect(normalizeSettings(legacySettings)).toEqual({
-      ...legacySettings,
-      commentReviewEnabled: false,
-      typesafeApiKey: "",
-      commentReviewCriteria: DEFAULT_COMMENT_REVIEW_CRITERIA,
-    });
-    expect(normalizeSettings({})).toEqual(DEFAULT_SETTINGS);
+    expect(normalizeSettings(settings)).toEqual(settings);
   });
 
   it("レビュー設定を正規化して明示的な有効化を保持する", () => {

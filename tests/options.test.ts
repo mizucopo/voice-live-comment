@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { loadSettings, resetRecognitionVolumeThreshold, saveSettings } from "../src/options.js";
+import {
+  init,
+  loadSettings,
+  resetRecognitionVolumeThreshold,
+  saveSettings,
+} from "../src/options.js";
 import { DEFAULT_COMMENT_REVIEW_CRITERIA, DEFAULT_SETTINGS } from "../src/settings.js";
 import { mockStorage, mockTabs } from "./setup.js";
 
@@ -111,6 +116,15 @@ describe("options.js", () => {
   });
 
   describe("saveSettings", () => {
+    it("プロバイダーを選択していない場合は保存も設定更新通知もしない", async () => {
+      document.getElementById("sttProvider").value = "";
+
+      await expect(saveSettings()).rejects.toThrow("STTプロバイダーの設定が不正です");
+
+      expect(chrome.storage.sync.set).not.toHaveBeenCalled();
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
+    });
+
     it("設定を保存する", async () => {
       autoPostCheckbox.checked = true;
       languageInput.value = "en-US";
@@ -377,9 +391,9 @@ describe("options.js", () => {
       expect(document.getElementById("googleSettings").style.display).not.toBe("none");
     });
 
-    it("サポート外プロバイダー設定はブラウザ音声認識として読み込む", async () => {
+    it("不正なプロバイダー設定をブラウザ音声認識へ置き換えない", async () => {
       chrome.storage.sync.get.mockResolvedValue({
-        sttProvider: "speechmatics",
+        sttProvider: 42,
         autoPost: true,
         language: "ja-JP",
         useLocalModel: false,
@@ -389,11 +403,42 @@ describe("options.js", () => {
         xaiApiKey: "",
       });
 
-      await loadSettings();
+      await expect(loadSettings()).rejects.toThrow("STTプロバイダーの設定が不正です");
+    });
 
-      expect(document.getElementById("sttProvider").value).toBe("browser");
-      expect(document.getElementById("browserSettings").style.display).not.toBe("none");
-      expect(document.getElementById("googleSettings").style.display).toBe("none");
+    it("不正なプロバイダーだけを修正して他の保存済み設定を保持する", async () => {
+      const stored = {
+        ...DEFAULT_SETTINGS,
+        sttProvider: 42,
+        autoPost: false,
+        language: "en-US",
+        useLocalModel: true,
+        recognitionVolumeThreshold: 0.12,
+        boostPhrases: ["配信", "コメント"],
+        dictionary: "とーきょー→東京",
+        googleApiKey: "google-key",
+        xaiApiKey: "xai-key",
+        commentReviewEnabled: true,
+        typesafeApiKey: "typesafe-key",
+        commentReviewCriteria: "脅迫は除外する。",
+      };
+      chrome.storage.sync.get.mockResolvedValue(stored);
+      chrome.tabs.query.mockResolvedValue([]);
+
+      await expect(loadSettings()).rejects.toThrow("STTプロバイダーの設定が不正です");
+
+      expect(document.getElementById("sttProvider").value).toBe("");
+      for (const id of ["browserSettings", "googleSettings", "grokSettings"]) {
+        expect(document.getElementById(id).style.display).toBe("none");
+      }
+      await expect(saveSettings()).rejects.toThrow("STTプロバイダーの設定が不正です");
+      expect(chrome.storage.sync.set).not.toHaveBeenCalled();
+
+      document.getElementById("sttProvider").value = "grok";
+      const saved = await saveSettings();
+
+      expect(saved).toEqual({ ...stored, sttProvider: "grok" });
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith(saved);
     });
 
     it("Grok選択時にGrok設定が表示される", async () => {
@@ -439,5 +484,24 @@ describe("options.js", () => {
         }),
       );
     });
+  });
+
+  it("読み込みと保存の設定エラーを画面に表示する", async () => {
+    chrome.storage.sync.get.mockResolvedValue({ ...DEFAULT_SETTINGS, sttProvider: 42 });
+    init();
+    document.dispatchEvent(new Event("DOMContentLoaded"));
+
+    await vi.waitFor(() => {
+      expect(statusElement.textContent).toBe("STTプロバイダーの設定が不正です");
+    });
+
+    statusElement.textContent = "";
+    document.getElementById("sttProvider").value = "";
+    document.getElementById("save").click();
+
+    await vi.waitFor(() => {
+      expect(statusElement.textContent).toBe("STTプロバイダーの設定が不正です");
+    });
+    expect(chrome.storage.sync.set).not.toHaveBeenCalled();
   });
 });
