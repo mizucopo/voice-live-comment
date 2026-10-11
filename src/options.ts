@@ -12,7 +12,6 @@ import {
   normalizeSettings,
   normalizeSttProvider,
   type ExtensionSettings,
-  type SttProviderName,
 } from "./settings.js";
 
 function element(id: string): HTMLElement {
@@ -44,22 +43,11 @@ function textAreaElement(id: string): HTMLTextAreaElement {
 }
 
 // Provider別の設定UI表示切り替え
-function updateProviderUI(provider: SttProviderName): void {
-  const browserSettings = element("browserSettings");
-  const googleSettings = element("googleSettings");
-  const grokSettings = element("grokSettings");
-
-  browserSettings.style.display = "none";
-  googleSettings.style.display = "none";
-  grokSettings.style.display = "none";
-
-  if (provider === "browser") {
-    browserSettings.style.display = "";
-  } else if (provider === "google") {
-    googleSettings.style.display = "";
-  } else {
-    grokSettings.style.display = "";
-  }
+function updateProviderUI(): void {
+  const provider = selectElement("sttProvider").value;
+  element("browserSettings").style.display = provider === "browser" ? "" : "none";
+  element("googleSettings").style.display = provider === "google" ? "" : "none";
+  element("grokSettings").style.display = provider === "grok" ? "" : "none";
 }
 
 function setRecognitionVolumeThreshold(value: unknown): number {
@@ -82,12 +70,14 @@ export function resetRecognitionVolumeThreshold(): number {
 
 // 設定を読み込んでフォームに反映
 export async function loadSettings(): Promise<ExtensionSettings> {
-  const stored = await chrome.storage.sync.get(DEFAULT_SETTINGS);
+  const { sttProvider = DEFAULT_SETTINGS.sttProvider, ...stored } =
+    await chrome.storage.sync.get(DEFAULT_SETTINGS);
+  // STTの検証前に他の設定を表示し、プロバイダーだけ修正できるようにする。
   const result = normalizeSettings(stored);
   result.recognitionVolumeThreshold = setRecognitionVolumeThreshold(
     result.recognitionVolumeThreshold,
   );
-  selectElement("sttProvider").value = result.sttProvider;
+  selectElement("sttProvider").value = typeof sttProvider === "string" ? sttProvider : "";
   inputElement("autoPost").checked = result.autoPost;
   inputElement("language").value = result.language;
   inputElement("useLocalModel").checked = result.useLocalModel;
@@ -98,8 +88,8 @@ export async function loadSettings(): Promise<ExtensionSettings> {
   inputElement("commentReviewEnabled").checked = result.commentReviewEnabled;
   inputElement("typesafeApiKey").value = result.typesafeApiKey;
   textAreaElement("commentReviewCriteria").value = result.commentReviewCriteria;
-  updateProviderUI(result.sttProvider);
-  return result;
+  updateProviderUI();
+  return { ...result, sttProvider: normalizeSttProvider(sttProvider) };
 }
 
 // 設定を保存
@@ -164,21 +154,20 @@ export async function saveSettings(): Promise<ExtensionSettings> {
 
 // 初期化
 export function init(): void {
+  const showError = (error: unknown): void => {
+    element("status").textContent = error instanceof Error ? error.message : String(error);
+  };
   document.addEventListener("DOMContentLoaded", () => {
-    void loadSettings().catch((error: unknown) => {
-      element("status").textContent = error instanceof Error ? error.message : String(error);
-    });
+    void loadSettings().catch(showError);
   });
-  element("save").addEventListener("click", () => void saveSettings());
+  element("save").addEventListener("click", () => void saveSettings().catch(showError));
   inputElement("recognitionVolumeThreshold").addEventListener("input", (event) => {
     setRecognitionVolumeThreshold((event.currentTarget as HTMLInputElement).value);
   });
   document.getElementById("resetRecognitionVolumeThreshold")?.addEventListener("click", () => {
     resetRecognitionVolumeThreshold();
   });
-  selectElement("sttProvider").addEventListener("change", (event) => {
-    updateProviderUI(normalizeSttProvider((event.currentTarget as HTMLSelectElement).value));
-  });
+  selectElement("sttProvider").addEventListener("change", updateProviderUI);
 }
 
 // 自動初期化

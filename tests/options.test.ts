@@ -406,6 +406,41 @@ describe("options.js", () => {
       await expect(loadSettings()).rejects.toThrow("STTプロバイダーの設定が不正です");
     });
 
+    it("不正なプロバイダーだけを修正して他の保存済み設定を保持する", async () => {
+      const stored = {
+        ...DEFAULT_SETTINGS,
+        sttProvider: 42,
+        autoPost: false,
+        language: "en-US",
+        useLocalModel: true,
+        recognitionVolumeThreshold: 0.12,
+        boostPhrases: ["配信", "コメント"],
+        dictionary: "とーきょー→東京",
+        googleApiKey: "google-key",
+        xaiApiKey: "xai-key",
+        commentReviewEnabled: true,
+        typesafeApiKey: "typesafe-key",
+        commentReviewCriteria: "脅迫は除外する。",
+      };
+      chrome.storage.sync.get.mockResolvedValue(stored);
+      chrome.tabs.query.mockResolvedValue([]);
+
+      await expect(loadSettings()).rejects.toThrow("STTプロバイダーの設定が不正です");
+
+      expect(document.getElementById("sttProvider").value).toBe("");
+      for (const id of ["browserSettings", "googleSettings", "grokSettings"]) {
+        expect(document.getElementById(id).style.display).toBe("none");
+      }
+      await expect(saveSettings()).rejects.toThrow("STTプロバイダーの設定が不正です");
+      expect(chrome.storage.sync.set).not.toHaveBeenCalled();
+
+      document.getElementById("sttProvider").value = "grok";
+      const saved = await saveSettings();
+
+      expect(saved).toEqual({ ...stored, sttProvider: "grok" });
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith(saved);
+    });
+
     it("Grok選択時にGrok設定が表示される", async () => {
       chrome.storage.sync.get.mockResolvedValue({
         sttProvider: "grok",
@@ -451,7 +486,7 @@ describe("options.js", () => {
     });
   });
 
-  it("読み込めない設定のエラーを画面に表示する", async () => {
+  it("読み込みと保存の設定エラーを画面に表示する", async () => {
     chrome.storage.sync.get.mockResolvedValue({ ...DEFAULT_SETTINGS, sttProvider: 42 });
     init();
     document.dispatchEvent(new Event("DOMContentLoaded"));
@@ -459,5 +494,14 @@ describe("options.js", () => {
     await vi.waitFor(() => {
       expect(statusElement.textContent).toBe("STTプロバイダーの設定が不正です");
     });
+
+    statusElement.textContent = "";
+    document.getElementById("sttProvider").value = "";
+    document.getElementById("save").click();
+
+    await vi.waitFor(() => {
+      expect(statusElement.textContent).toBe("STTプロバイダーの設定が不正です");
+    });
+    expect(chrome.storage.sync.set).not.toHaveBeenCalled();
   });
 });
