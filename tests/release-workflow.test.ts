@@ -262,11 +262,15 @@ describe("Chrome拡張のGitHub Actions", () => {
     expect(releaseWorkflow).toContain(
       "if: steps.release-state.outputs.release_asset_exists != 'true'",
     );
-    expect(releaseWorkflow).toContain('gh release create "$TAG" --verify-tag --draft');
+    expect(releaseWorkflow).toContain('RELEASE_DRAFT: "true"');
+    expect(releaseWorkflow).toContain("python3 -I .github/scripts/release.py create");
     expect(releaseWorkflow).toContain("Reject incomplete public release");
     expect(releaseWorkflow).toContain("steps.release-state.outputs.release_is_draft != 'true'");
     expect(releaseWorkflow).toContain('test "$release_asset_exists" = true');
-    expect(releaseWorkflow).toContain('gh release edit "$TAG" --draft=false --latest=false');
+    expect(releaseWorkflow).toContain(
+      'gh api --method PATCH "/repos/$GITHUB_REPOSITORY/releases/$release_id"',
+    );
+    expect(releaseWorkflow).toContain("-F draft=false -f make_latest=false");
     expect(assetCopyScript).toContain(
       'cp(new URL("LICENSE", projectRoot), new URL("LICENSE", distRoot))',
     );
