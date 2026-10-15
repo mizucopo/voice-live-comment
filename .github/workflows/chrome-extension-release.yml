@@ -193,6 +193,15 @@ jobs:
                 echo "::error::GitHub Release $TAG returned invalid release metadata."
                 exit 1
               fi
+              if [ "$release_is_draft" = "false" ]; then
+                if ! planned_prerelease="$(jq -er '.publication.is_prerelease | select(type == "boolean") | tostring' "${RELEASE_PLAN_OUTPUT:-}")" \
+                  || ! jq -e --argjson prerelease "$planned_prerelease" \
+                    '(.prerelease | type == "boolean") and .prerelease == $prerelease' \
+                    "$RELEASE_RESPONSE" > /dev/null; then
+                  echo "::error::Published GitHub Release classification differs from publication plan."
+                  exit 1
+                fi
+              fi
             fi
           fi
 
@@ -379,6 +388,15 @@ jobs:
                 echo "::error::GitHub Release $TAG returned invalid release metadata."
                 exit 1
               fi
+              if [ "$release_is_draft" = "false" ]; then
+                if ! planned_prerelease="$(jq -er '.publication.is_prerelease | select(type == "boolean") | tostring' "${RELEASE_PLAN_OUTPUT:-}")" \
+                  || ! jq -e --argjson prerelease "$planned_prerelease" \
+                    '(.prerelease | type == "boolean") and .prerelease == $prerelease' \
+                    "$RELEASE_RESPONSE" > /dev/null; then
+                  echo "::error::Published GitHub Release classification differs from publication plan."
+                  exit 1
+                fi
+              fi
             fi
           fi
 
@@ -549,6 +567,15 @@ jobs:
                 echo "::error::GitHub Release $TAG returned invalid release metadata."
                 exit 1
               fi
+              if [ "$release_is_draft" = "false" ]; then
+                if ! planned_prerelease="$(jq -er '.publication.is_prerelease | select(type == "boolean") | tostring' "${RELEASE_PLAN_OUTPUT:-}")" \
+                  || ! jq -e --argjson prerelease "$planned_prerelease" \
+                    '(.prerelease | type == "boolean") and .prerelease == $prerelease' \
+                    "$RELEASE_RESPONSE" > /dev/null; then
+                  echo "::error::Published GitHub Release classification differs from publication plan."
+                  exit 1
+                fi
+              fi
             fi
           fi
 
@@ -607,8 +634,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           test "$release_is_draft" = true
           test "$release_asset_exists" = true
+          is_prerelease="$(jq -er '.publication.is_prerelease | select(type == "boolean") | tostring' "$RELEASE_PLAN_OUTPUT")"
           gh api --method PATCH "/repos/$GITHUB_REPOSITORY/releases/$release_id" \
-            -F draft=false -f make_latest=false
+            -F draft=false -F prerelease="$is_prerelease" -f make_latest=false
 
   promote-latest:
     needs: [prepare, release]

@@ -270,7 +270,9 @@ describe("Chrome拡張のGitHub Actions", () => {
     expect(releaseWorkflow).toContain(
       'gh api --method PATCH "/repos/$GITHUB_REPOSITORY/releases/$release_id"',
     );
-    expect(releaseWorkflow).toContain("-F draft=false -f make_latest=false");
+    expect(releaseWorkflow).toContain(
+      '-F draft=false -F prerelease="$is_prerelease" -f make_latest=false',
+    );
     expect(assetCopyScript).toContain(
       'cp(new URL("LICENSE", projectRoot), new URL("LICENSE", distRoot))',
     );

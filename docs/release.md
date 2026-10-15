@@ -24,6 +24,8 @@ PR 品質 CI → squash merge → 最新のマージ済み PR の分類で最新
 
 初回は新公開設定を導入した commit の親以後を対象とする。新規 repository の root commit だけでは公開しない。最初のラベル付き PR のマージ後、設定した初期 version とその分類を使って採番する。設定導入前の過去 PR を再分類しない。main への通常変更は squash-merged PR で行う。
 
+旧テンプレートの plain `version` が `v1.2.5` のような値の場合、Copier update の PR で現在の値を厳格な SemVer（`1.2.5`）に直す。SemVer 方式の初回採番だけ、設定導入 commit の親にある text 形式の `version` の先頭の小文字 `v` を一つ除き、残りを厳格に検証して基準にする。ラベルなし導入後の最初の公開でも同じ基準を使う。JSON/TOML、他の path・番号方式、設定導入後の値と採番済み履歴には適用せず、不正値や複数 source の不整合は停止する。過去の version・tag・image・Release は変更しない。
+
 番号規則は SemVer、Chrome manifest version、upstream-revision を使う。SemVer 0.x の major は 1.0.0。prerelease patch は末尾数値を増やし、channel・core・安定版への変更は明示 version を必要とする。明示 version は分類に必要な更新幅以上の下限指定。Chrome の各成分は 0～65535で、上限到達時は停止する。upstream-revision は上流 version を保持して revision を進め、新しい上流 version では r0 から始める。
 
 SemVer の core を増やす場合、その core の prerelease も明示できる。例えば 0.2.3 から patch は 0.2.4-rc.1、minor は 0.3.0-rc.1、major は 1.0.0-rc.1 を開始できる。既存 prerelease の patch は次の番号以上を必要とし、同じ番号や前の番号への巻き戻しは拒否する。
@@ -40,13 +42,63 @@ Release 作成応答の ID を後続の asset 添付・配布案内・draft 公�
 
 Release の分類は共通公開計画で採番済み VERSION と方式から決める。build metadata は分類に影響しない。通常 SemVer の 1.2.3-r1 は prerelease。upstream-revision の上流 VERSION が 1.2.3 なら公開 tag 1.2.3-r1 は通常 Release・Latest 候補で、上流 VERSION が 1.2.3-rc.1 なら prerelease。公開 tag の revision suffix だけで分類しない。
 
+共通 `release.py` と Tauri・Chrome Extension の配布 workflow は、既存公開 Release の tag・ID・`prerelease` の型と公開計画との一致を確認してから再利用する。完成済み asset が揃っていても検証する。不一致では本文・asset・分類を変更せず停止する。採番記録と実際の公開状態を確認し、運用者が metadata を正しい計画へ修正してから元 run を再実行する。stable が `prerelease: true` のままだと Latest 候補から外れる。draft の分類は配布完了時に計画へ揃える。
+
 Docker image tag は展開後の `+` を `_` に変換する（例 `1.2.3+build.1` → `1.2.3_build.1`）。SemVer に `_` は使えないため prerelease の `-` と衝突せず、Git version・tag・Release 名は元の値を保持する。有効な既存 image tag は変わらない。変換後にも tag の長さ・形式・使用済み状態・所有者を検証する。
+
+Docker Release の公開後確認は `image-verify` で同じ immutable tag を最大 6 回照会し、不在の間だけ 5 秒間隔で待つ（待機は最大 5 回・計 25 秒、HTTP request の timeout は各 30 秒）。Docker Hub は既知 repository の Registry manifest HEAD の 404、ECR は ImageNotFoundException が待機対象。repository 自体の 404、401/403、429、5xx、redirect、通信失敗・timeout、不正 digest は再試行せず失敗する。上限到達時は試行回数と間隔を error に示し、GitHub Release の作成・公開と latest 昇格へ進まない。途中ログには試行回数と待機間隔だけを載せ、認証 token や応答本文は載せない。
+
+Docker Hub の共通 image 照会は、repository-level の権限・可視性確認を保ち、タグの存在と digest は実レジストリ `registry-1.docker.io` の manifest HEAD と `Docker-Content-Digest` で検証する。Hub のタグ管理 API は、Registry で取得できる image に対して古い情報や 404 を返すことがあるため使わない。採番時の衝突確認、`image-state`、`image-verify`、配布案内も同じ照会を使う。
+
+既存の `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` がある場合は Hub 用 JWT と Registry 用の `repository:<name>:pull` scope token を別々に取得する。PAT は固定 HTTPS の認証先だけへ渡し、各 bearer は対応する API だけへ送る。設定済み認証の失敗から匿名へ fallback せず、HTTP redirect も拒否する。資格情報がない公開 repository は匿名の Registry token で確認できる。Docker / OCI の manifest と index を受け入れ、digest の欠落・不正値は失敗にする。HEAD は image や layer を download しない。
+
+採番時の未使用判定と公開前の `image-state` は単発照会のまま維持する。確認中に image を再 build/push・上書きしない。部分公開後は元 run を再実行し、同じ commit/tag の所有権を検証した既存 image と完成済み native assets を再利用して、不足工程だけを続ける。公開直後の不在は反映遅延の可能性があるが、再試行成功だけで原因を断定しない。
 
 ## 配布案内
 
 汎用 Release・Docker Release・Docker project pipeline は、添付済み asset と公開設定の image を本文の管理ブロックに案内する。既存のリリースノート・手書き本文は保持し、再実行では同じブロックを更新する。Docker Hub はリンクと実際の version tag の PULL コマンドを載せ、ECR は ECR の PULL コマンドを載せる。公開先の照会失敗・未提供 image は公開前に停止する。
 
-`use_rust=true` の汎用 Release・Docker Release は、root Cargo package のdefault features の実行バイナリを Linux x64（GNU）向けにビルドし、`<package>-<tag>-linux-x86_64.tar.gz` を添付してから draft を公開する。library のみなら実行バイナリは添付しない。他の OS・architecture は配布しない。Python project 等に Rust バイナリの案内は生成しない。
+Docker Release（Rust の有無にかかわらず）と Docker project pipeline は新規 Release を draft として作り、最終 image 照会と配布案内の本文更新が成功した時点で公開する。照会・本文更新が失敗した場合は draft のまま元 run を再実行する。
+
+`use_rust=true` の汎用 Release・Docker Release は `rust_release_targets` で通常の Rust CLI / Exporter の配布対象を選ぶ。既定は既存の Linux x64（GNU）。root Cargo package の default features で有効な全 executable を同梱し、library のみ・無効な optional CLI のみの場合は配布 archive を作らない。Tauri の bundle 経路とは独立しており、Python のみの project や Docker project pipeline にこの配布 job は生成しない。
+
+| Rust target                | Native runner                  | Archive                               |
+| -------------------------- | ------------------------------ | ------------------------------------- |
+| `x86_64-unknown-linux-gnu` | `ubuntu-latest` (x64)          | `<package>-<tag>-linux-x86_64.tar.gz` |
+| `x86_64-pc-windows-msvc`   | `windows-latest` (x64)         | `<package>-<tag>-windows-x86_64.zip`  |
+| `aarch64-pc-windows-msvc`  | `windows-11-arm` (ARM64)       | `<package>-<tag>-windows-arm64.zip`   |
+| `aarch64-apple-darwin`     | `macos-latest` (Apple Silicon) | `<package>-<tag>-macos-arm64.tar.gz`  |
+
+各 archive の隣に `<archive>.sha256` を添付する。形式は SHA-256 の小文字 hexadecimal、空白二つ、archive の実名、改行。既存 Linux の archive 名・default features・実行権限を維持する。Windows は `.exe`、macOS/Linux は executable を archive 直下へ置く。tag の `+build` は実名に保持し、`/` 等はファイル名で percent encode、upload URL ではさらに transport 用 encode を行う。Downloads は公開前に GitHub へ再照会した添付ファイルの実名と `browser_download_url` を載せ、予測 URL は作らない。
+
+採番 commit にある `.github/release.json` の `publication.rust.targets` から matrix を読み、全 runner が同じ `release_sha` を checkout・採番記録と tag を検証する。既存設定で optional な `Cargo.lock` が無い binary project は、旧品質 gate と同様に `cargo generate-lockfile` で build 前に作る。存在する lock は保持し、library のみなら作らない。各 runner は `cargo build --release --locked --package <package> --bins --target <target>` の Cargo artifact から実行ファイルを集め、archive を別 directory へ展開し、各 executable を `smoke_args`（既定 `["--help"]`）で起動する。起動の timeout は各 30 秒。native OS / CPU と target が一致しなければ失敗する。ARM64 クロスビルド成功を実行確認として扱わない。依存機能の実動作や署名・notarization・一般利用者環境での起動は、この最小 smoke と別の製品検証である。
+
+全 target の build・展開・起動成功後、共通公開 job が manifest の commit/tag/target/package/native smoke、archive 名・内容・checksum と target 間の executable 一致を検証する。不足・不一致では公開しない。全 archive と checksum の upload と照会、Docker の場合は image 照会、Downloads の本文更新が揃った時点で draft を公開する。失敗時には採番 commit/tag と draft を残す。元 run の再実行は完成済み asset を上書きせず、不足分と incomplete asset のみ継続する。再ビルドで圧縮 bytes が変わっても、checksum は保持した GitHub archive の digest（未提供なら実 bytes）から作る。既存の完成済み checksum が archive と違えば停止する。公開済み Release の不足 asset は補完せず停止する。
+
+### 製品固有処理との境界
+
+共通処理は target 選択・Cargo artifact 収集・命名・archive・checksum・最小 smoke・公開保護を所有する。OS の追加依存を導入する step は製品の生成済み `rust-builds` job に追記し、Copier update の three-way merge で保持・確認する。追加同梱物は製品が所有する script を `.github/release.json` の `publication.rust.stage_command`（既定 `[]`、shell を介さない argv）から呼ぶ。hook の作業 directory は project root、`RUST_RELEASE_STAGE_DIR` は executable を配置済みの一時 directory、`RUST_RELEASE_TARGET` / `RUST_RELEASE_TAG` は対象と tag。同梱する license・DLL・設定等を staging directory へコピーする。全 regular file を相対 path で同梱する。symlink は許可しない。hook の失敗、executable の削除・起動失敗は公開を止める。
+
+```json
+"rust": {
+  "targets": ["x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc", "aarch64-apple-darwin"],
+  "smoke_args": ["--help"],
+  "stage_command": ["python", "scripts/package-release.py"]
+}
+```
+
+製品固有の CLI 引数は `smoke_args` を変更する。GUI や外部サービスへの接続確認、独自 archive、既存 checksum の形式、依存・license 検証、既存の公開保護を持つ製品は、製品 Issue で接続方法と追加 smoke を検討する。共通 template に製品名や製品依存を持ち込まない。この共通化だけで下流製品の release は変更されない。
+
+### Copier 更新
+
+clean な専用 branch で上流を更新し、必要な対象を選択する。通常の three-way update を使い、回答だけを変更する場合は `--vcs-ref=:current:` にする。
+
+```sh
+copier update --trust --defaults --vcs-ref HEAD \
+  -d 'rust_release_targets=["x86_64-unknown-linux-gnu","x86_64-pc-windows-msvc","aarch64-pc-windows-msvc","aarch64-apple-darwin"]'
+```
+
+`.copier-answers.yml`、`release.json`、通常または Docker Release、`release.py`、製品の依存導入 step・stage hook の差分と競合を確認する。旧 Linux 固定処理から更新すると checksum 添付と native build job が追加される。Linux 配布を維持する製品は Linux target を残す。生成・更新テスト、製品の品質 gate、選択した全 OS/CPU の archive 展開と起動を PR で検証し、未実機確認の範囲を記載する。認証・repository 設定・製品 release は更新 PR と別に扱う。
 
 ## 失敗と復旧
 
