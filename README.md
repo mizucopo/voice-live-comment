@@ -64,6 +64,13 @@ npm run check
 
 開発ツールはNode.js 24、TypeScript 7、Oxlint、Prettier、Vitestを使用します。`npm run lint` は型情報を使ったOxlintの検査を実行します。
 
+### 構成とテンプレート更新
+
+- TypeScriptのソース、`manifest.json`、オプション画面、スタイル、アイコンは `src/` に置きます。テストは `tests/` に置き、可能な範囲でソースの構成に揃えます。
+- `npm run build` はTypeScriptのコンパイル後、Rollupでcontent scriptをバンドルし、画面・アイコン等のアセットとMITライセンスを `dist/` にコピーします。
+- 共通の構成、TypeScript・Lint設定、Node.jsのバージョン、品質チェック、採番・公開は `mizucopo/repo-template` のChrome拡張テンプレートを基本にします。Copier更新時は生成ファイルを基本として受け入れ、製品コードを適合させます。
+- YouTubeコメントの動作、STTプロバイダー、音声パイプライン、依存パッケージ、Rollupでのバンドル、オプション画面、アイコン、振る舞いのテストは製品固有の要件として維持します。テンプレートと異なる構成が必要な場合は、その理由となるVoice Live Commentの要件を明示します。
+
 ## バージョンとリリース
 
 - `package.json` と `src/manifest.json` のバージョンは常に一致させます。
@@ -73,11 +80,6 @@ npm run check
 - 今後の配布ZIP名は `voice-live-comment-X.Y.Z.zip` です。実行を起動したpush時点のリポジトリ名とバージョンから生成するため、改名後の再実行でも同じ名前を使います。
 - 過去のリリースには `chrome-extension-X.Y.Z.zip` が添付されています。公開済みZIPの名前は変更しません。
 - 完了済みリリースのうち、`main` の履歴で最も新しいものをGitHub ReleasesのLatestに指定します。古いリリースの再実行ではLatestを巻き戻しません。
-
-## 設計資料
-
-- [テンプレート優先のChrome拡張レイアウト](docs/adr/0002-adopt-template-first-chrome-extension-layout.md)
-- [テンプレート標準の自動採番と公開](docs/adr/0003-adopt-automatic-release-numbering.md)
 
 ## 使い方
 
