@@ -7,7 +7,7 @@
 
 ## Voice Live Comment requirements
 
-- Preserve the YouTube comment behavior, STT providers, audio pipeline, options, icons, and observable tests when applying template updates. Follow `docs/adr/0002-adopt-template-first-chrome-extension-layout.md` for the template-first layout and repository-specific build requirements.
+- Preserve the YouTube comment behavior, STT providers, audio pipeline, options, icons, and observable tests when applying template updates. Follow the development section in `README.md` for the template-first layout and repository-specific build requirements.
 - Keep TypeScript source, `manifest.json`, the options page, styles, and icons under `src/`; build the loadable extension into `dist/`.
 - Keep `package.json` and `src/manifest.json` versions equal. Follow `CONTRIBUTING.md` for release classification and `docs/release.md` for automatic numbering after squash merge; distribution releases use the raw `X.Y.Z` tag.
 - Put Chrome API boundaries in entrypoints such as `background.ts`, `content.ts`, and `options.ts`, and mock Chrome APIs only at those boundaries.
