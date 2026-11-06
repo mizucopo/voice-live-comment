@@ -67,6 +67,7 @@ export class GoogleSttProvider extends SttProvider {
         );
 
         if (!response.ok) {
+          // Retry only the HTTP status, never numbers in an error message or body.
           if (response.status === 429 && attempt < maxRetries) {
             await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 1000));
             continue;
@@ -90,10 +91,6 @@ export class GoogleSttProvider extends SttProvider {
         return;
       } catch (error) {
         lastError = asError(error);
-        if (lastError.message.includes("429") && attempt < maxRetries) {
-          await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-          continue;
-        }
         break;
       }
     }
