@@ -23,7 +23,7 @@ describe("options.js", () => {
   let languageInput: HTMLInputElement;
   let statusElement: HTMLElement;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     document.body.innerHTML = new DOMParser().parseFromString(
       optionsPage,
       "text/html",
@@ -34,6 +34,12 @@ describe("options.js", () => {
 
     vi.clearAllMocks();
     vi.useFakeTimers();
+    chrome.storage.sync.set.mockImplementation(async (values: Record<string, unknown>) => {
+      const stored = await chrome.storage.sync.get();
+      chrome.storage.sync.get.mockResolvedValue({ ...stored, ...values });
+    });
+    await loadSettings();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -134,6 +140,9 @@ describe("options.js", () => {
 
       expect(chrome.storage.sync.set).toHaveBeenCalledWith({
         ...DEFAULT_SETTINGS,
+        dictionaryPresets: { version: 1, activeName: "標準", names: ["標準"] },
+        dp0b: [],
+        dp0d: "",
         sttProvider: "browser",
         autoPost: true,
         language: "en-US",
@@ -155,6 +164,9 @@ describe("options.js", () => {
 
       expect(chrome.storage.sync.set).toHaveBeenCalledWith({
         ...DEFAULT_SETTINGS,
+        dictionaryPresets: { version: 1, activeName: "標準", names: ["標準"] },
+        dp0b: [],
+        dp0d: "",
         sttProvider: "browser",
         autoPost: true,
         language: "ja-JP",
@@ -202,6 +214,9 @@ describe("options.js", () => {
 
       expect(chrome.storage.sync.set).toHaveBeenCalledWith({
         ...DEFAULT_SETTINGS,
+        dictionaryPresets: { version: 1, activeName: "標準", names: ["標準"] },
+        dp0b: ["配信", "コメント"],
+        dp0d: "とーきょー→東京",
         sttProvider: "browser",
         autoPost: true,
         language: "ja-JP",
@@ -438,7 +453,12 @@ describe("options.js", () => {
       const saved = await saveSettings();
 
       expect(saved).toEqual({ ...stored, sttProvider: "grok" });
-      expect(chrome.storage.sync.set).toHaveBeenCalledWith(saved);
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        ...saved,
+        dictionaryPresets: { version: 1, activeName: "標準", names: ["標準"] },
+        dp0b: saved.boostPhrases,
+        dp0d: saved.dictionary,
+      });
     });
 
     it("Grok選択時にGrok設定が表示される", async () => {
