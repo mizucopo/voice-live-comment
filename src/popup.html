@@ -69,6 +69,15 @@
       </div>
 
       <div class="form-group">
+        <label for="dictionaryPreset">辞書プリセット</label>
+        <select id="dictionaryPreset" aria-describedby="dictionaryPresetHint"></select>
+        <div id="dictionaryPresetHint" class="hint">
+          選択したワードブーストとカスタム辞書は、下の「保存」で適用されます。
+          辞書の編集は、切り替える前に保存してください。
+        </div>
+      </div>
+
+      <div class="form-group">
         <label for="boostPhrases">ワードブースト</label>
         <textarea id="boostPhrases" rows="3" placeholder="例: 配信名、よく使う言葉"></textarea>
         <div class="hint">
@@ -84,6 +93,21 @@
           placeholder="例:&#10;とーきょー→東京&#10;ぶろっこりー→ブロッコリー"
         ></textarea>
         <div class="hint">誤認識→正しい表記 の形式で1行に1つ入力してください</div>
+      </div>
+
+      <div class="form-group">
+        <label for="dictionaryPresetName">新しいプリセット名</label>
+        <input
+          type="text"
+          id="dictionaryPresetName"
+          maxlength="80"
+          placeholder="例: 配信するゲーム名"
+        />
+        <button type="button" id="saveDictionaryPresetAs">辞書を別名で保存</button>
+        <div class="hint">
+          現在のワードブーストとカスタム辞書だけを保存し、適用します。
+          APIキー、自動投稿など他の設定は含めません。同名のプリセットは上書きしません。
+        </div>
       </div>
 
       <div id="googleSettings" style="display: none">
@@ -142,7 +166,7 @@
     </div>
 
     <button id="save">保存</button>
-    <div id="status" class="status"></div>
+    <div id="status" class="status" role="status" aria-live="polite"></div>
 
     <script type="module" src="options.js"></script>
   </body>
