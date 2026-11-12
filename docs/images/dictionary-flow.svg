@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="505" viewBox="0 0 760 505" role="img" aria-labelledby="title desc">
+<title id="title">ゲーム別の辞書を使う</title><desc id="desc">操作の説明図です。入力例はサンプルです。</desc>
+<rect width="760" height="505" rx="16" fill="#f1f5f9"/>
+<g font-family="sans-serif" fill="#0f172a">
+<text x="30" y="44" font-size="26" font-weight="700">ゲーム別の辞書を使う</text>
+<text x="30" y="76" font-size="16" fill="#475569">操作の説明図です。入力例はサンプルです。</text>
+<rect x="25" y="100" width="710" height="105" rx="12" fill="white" stroke="#cbd5e1"/>
+<circle cx="59" cy="134" r="19" fill="#1d4ed8"/>
+<text x="59" y="140" text-anchor="middle" font-size="18" fill="white">1</text>
+<text x="92" y="140" font-size="21" font-weight="700">ワードブースト・カスタム辞書を入力</text>
+<text x="92" y="176" font-size="17" fill="#334155">例：Grok ／ ぶろっこりー→ブロッコリー</text>
+<rect x="25" y="225" width="710" height="105" rx="12" fill="white" stroke="#cbd5e1"/>
+<circle cx="59" cy="259" r="19" fill="#1d4ed8"/>
+<text x="59" y="265" text-anchor="middle" font-size="18" fill="white">2</text>
+<text x="92" y="265" font-size="21" font-weight="700">新しいプリセット名 → 「辞書を別名で保存」</text>
+<text x="92" y="301" font-size="17" fill="#334155">例：配信用サンプル。2つの辞書だけを保存して適用します。</text>
+<rect x="25" y="350" width="710" height="105" rx="12" fill="white" stroke="#cbd5e1"/>
+<circle cx="59" cy="384" r="19" fill="#1d4ed8"/>
+<text x="59" y="390" text-anchor="middle" font-size="18" fill="white">3</text>
+<text x="92" y="390" font-size="21" font-weight="700">切り替える：辞書プリセットを選択 → 「保存」</text>
+<text x="92" y="426" font-size="17" fill="#334155">選択だけでは変わりません。未保存の辞書は先に保存します。</text>
+</g>
+</svg>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="630" viewBox="0 0 760 630" role="img" aria-labelledby="title desc">
+<title id="title">まずは送信せずに試す</title><desc id="desc">操作の説明図です。Chromeの実際の画面とは異なります。</desc>
+<rect width="760" height="630" rx="16" fill="#f1f5f9"/>
+<g font-family="sans-serif" fill="#0f172a">
+<text x="30" y="44" font-size="26" font-weight="700">まずは送信せずに試す</text>
+<text x="30" y="76" font-size="16" fill="#475569">操作の説明図です。Chromeの実際の画面とは異なります。</text>
+<rect x="25" y="100" width="710" height="105" rx="12" fill="white" stroke="#cbd5e1"/>
+<circle cx="59" cy="134" r="19" fill="#1d4ed8"/>
+<text x="59" y="140" text-anchor="middle" font-size="18" fill="white">1</text>
+<text x="92" y="140" font-size="21" font-weight="700">アイコンを右クリック → オプション</text>
+<text x="92" y="176" font-size="17" fill="#334155">音声認識方式：ブラウザ音声認識 ／ 言語：ja-JP</text>
+<rect x="25" y="225" width="710" height="105" rx="12" fill="white" stroke="#cbd5e1"/>
+<circle cx="59" cy="259" r="19" fill="#1d4ed8"/>
+<text x="59" y="265" text-anchor="middle" font-size="18" fill="white">2</text>
+<text x="92" y="265" font-size="21" font-weight="700">「自動投稿する」をOFF → 画面下の「保存」</text>
+<text x="92" y="301" font-size="17" fill="#334155">初期値はONです。試す前に必ず保存してください。</text>
+<rect x="25" y="350" width="710" height="105" rx="12" fill="white" stroke="#cbd5e1"/>
+<circle cx="59" cy="384" r="19" fill="#1d4ed8"/>
+<text x="59" y="390" text-anchor="middle" font-size="18" fill="white">3</text>
+<text x="92" y="390" font-size="21" font-weight="700">YouTubeを開く → アイコンをクリック</text>
+<text x="92" y="426" font-size="17" fill="#334155">緑の ● が認識中の目印。マイクに向かって短く話します。</text>
+<rect x="25" y="475" width="710" height="105" rx="12" fill="white" stroke="#cbd5e1"/>
+<circle cx="59" cy="509" r="19" fill="#1d4ed8"/>
+<text x="59" y="515" text-anchor="middle" font-size="18" fill="white">4</text>
+<text x="92" y="515" font-size="21" font-weight="700">認識を停止 → 文章を確認 → YouTubeで送信</text>
+<text x="92" y="551" font-size="17" fill="#334155">認識中の次の文章は下書きを置換します。編集する前に停止。</text>
+</g>
+</svg>
